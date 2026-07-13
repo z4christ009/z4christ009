@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
-"""Google Maps scraper.
+"""Google Maps lead scraper — no API key needed.
 
-Searches Google Maps for a query, scrolls through the results feed, opens each
-place, and extracts business details into CSV and/or JSON.
+Searches Google Maps in a real (automated) browser, scrolls through the
+results, opens each place, and extracts business details into CSV/JSON.
+Built for lead generation: it classifies each place's web presence so you can
+instantly see who has no real website (social-media-only or nothing at all).
 
 Usage:
-    python scraper.py "restaurants in Beirut" --max-results 20 --output results
-    python scraper.py "coffee shops in Jounieh" -n 10 --format json --headful
+    python scraper.py "restaurants in Beirut" -n 40
+    python scraper.py "barber shops in Jbeil" --leads-only
+    python scraper.py "dentists in Zahle" -n 30 --emails
 
-Extracted fields per place:
-    name, category, rating, reviews_count, price_level, address, phone,
-    website, plus_code, latitude, longitude, opening_hours, google_maps_url
+Requires:
+    pip install playwright
+    playwright install chromium
 
-Notes:
-    - Requires: pip install playwright && playwright install chromium
-    - Scraping Google Maps may violate Google's Terms of Service. Use
-      responsibly, keep volumes low, and consider the official Places API
-      for production use.
+Note: scraping Google Maps may violate Google's Terms of Service. Keep
+volumes reasonable; the built-in delays help you stay polite.
 """
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import re
 import sys
 import time
@@ -35,23 +36,80 @@ from playwright.sync_api import sync_playwright, Page, TimeoutError as PWTimeout
 FEED_SELECTOR = 'div[role="feed"]'
 RESULT_LINK_SELECTOR = 'a[href*="/maps/place/"]'
 
+SOCIAL_DOMAINS = {
+    "instagram.com": "instagram",
+    "instagr.am": "instagram",
+    "facebook.com": "facebook",
+    "fb.com": "facebook",
+    "fb.me": "facebook",
+    "m.me": "facebook",
+    "wa.me": "whatsapp",
+    "api.whatsapp.com": "whatsapp",
+    "linktr.ee": "linktree",
+    "beacons.ai": "linktree",
+    "taplink.cc": "linktree",
+    "tiktok.com": "tiktok",
+    "twitter.com": "social",
+    "x.com": "social",
+    "youtube.com": "social",
+}
+
+# Free site builders, hosted menu pages, and aggregator profiles. A business
+# whose only web presence lives on one of these has no real website of its
+# own — exactly the leads we want to flag.
+HOSTED_DOMAINS = (
+    "business.site", "godaddysites.com", "wixsite.com", "wix.com",
+    "square.site", "weebly.com", "wordpress.com", "blogspot.com",
+    "sites.google.com", "webnode.com", "webs.com", "mystrikingly.com",
+    "carrd.co", "jimdosite.com",
+    # menu-hosting / ordering / aggregator platforms
+    "omegasoftware.ca", "finedinemenu.com", "menulist.menu", "ordable.com",
+    "zomato.com", "talabat.com", "toasttab.com", "popmenu.com",
+    "untappd.com", "yelp.com", "tripadvisor.com",
+)
+
+SHORTLINK_DOMAINS = ("bit.ly", "goo.gl", "tinyurl.com", "t.co", "cutt.ly")
+
 FIELDNAMES = [
-    "name", "category", "rating", "reviews_count", "price_level", "address",
-    "phone", "website", "plus_code", "latitude", "longitude",
-    "opening_hours", "google_maps_url",
+    "name", "category", "status", "rating", "reviews_count", "price_level",
+    "address", "phone", "whatsapp_link", "website", "website_type", "is_lead",
+    "emails", "plus_code", "latitude", "longitude", "opening_hours",
+    "google_maps_url",
 ]
+
+EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
+EMAIL_JUNK = re.compile(
+    r"\.(png|jpe?g|gif|svg|webp|css|js)$"
+    r"|@(example|sentry|schema|wixpress|placeholder|domain|yourdomain"
+    r"|email|company|website|mysite|test|sample)\."
+    r"|^(name|your ?name|firstname|lastname|email|youremail|user|test|info"
+    r"|john\.?doe|jane\.?doe|someone|example|abc|xyz)@",
+    re.I,
+)
+
+# The stable place identifier inside a Google Maps URL, e.g.
+# "!1s0x151f410033f2042f:0xf8cfc0d70f385613". Two different links to the same
+# place (ads, re-ranked results) share this ID, so it is the dedup key.
+PLACE_ID_RE = re.compile(r"!1s(0x[0-9a-f]+:0x[0-9a-f]+)", re.I)
 
 
 @dataclass
 class Place:
     name: str = ""
     category: str = ""
+    status: str = ""
     rating: str = ""
     reviews_count: str = ""
     price_level: str = ""
     address: str = ""
     phone: str = ""
+    whatsapp_link: str = ""      # wa.me link built from the phone number
     website: str = ""
+    # none | instagram | facebook | whatsapp | linktree | tiktok | social |
+    # hosted-page | shortlink | website
+    website_type: str = "none"
+    is_lead: str = "yes"         # yes unless website_type == "website"
+    emails: str = ""
     plus_code: str = ""
     latitude: str = ""
     longitude: str = ""
@@ -61,6 +119,30 @@ class Place:
 
 def log(msg: str) -> None:
     print(f"[scraper] {msg}", flush=True)
+
+
+def classify_website(url: str) -> str:
+    if not url:
+        return "none"
+    try:
+        host = urllib.parse.urlparse(url).netloc.lower()
+    except Exception:
+        return "website"
+    host = host[4:] if host.startswith("www.") else host
+
+    def matches(domain: str) -> bool:
+        return host == domain or host.endswith("." + domain)
+
+    for domain, kind in SOCIAL_DOMAINS.items():
+        if matches(domain):
+            return kind
+    for domain in HOSTED_DOMAINS:
+        if matches(domain):
+            return "hosted-page"
+    for domain in SHORTLINK_DOMAINS:
+        if matches(domain):
+            return "shortlink"
+    return "website"
 
 
 def accept_consent(page: Page) -> None:
@@ -97,28 +179,32 @@ def collect_result_urls(page: Page, query: str, max_results: int) -> list[str]:
     seen: set[str] = set()
     stale_rounds = 0
 
-    while len(urls) < max_results and stale_rounds < 6:
+    def harvest() -> None:
         for el in page.locator(f"{FEED_SELECTOR} {RESULT_LINK_SELECTOR}").all():
             href = el.get_attribute("href") or ""
-            key = href.split("?")[0]
-            if key and key not in seen:
+            if not href:
+                continue
+            m = PLACE_ID_RE.search(href)
+            key = m.group(1) if m else href.split("?")[0]
+            if key not in seen:
                 seen.add(key)
                 urls.append(href)
+
+    while len(urls) < max_results and stale_rounds < 8:
+        harvest()
         if len(urls) >= max_results:
             break
 
         before = len(urls)
-        page.locator(FEED_SELECTOR).evaluate("el => el.scrollBy(0, 2000)")
-        page.wait_for_timeout(1500)
+        page.locator(FEED_SELECTOR).evaluate(
+            "el => el.scrollBy(0, el.scrollHeight)"
+        )
+        page.wait_for_timeout(1600)
 
         # "You've reached the end of the list." sentinel
         if page.locator(f'{FEED_SELECTOR} >> text=/reached the end/i').count():
-            for el in page.locator(f"{FEED_SELECTOR} {RESULT_LINK_SELECTOR}").all():
-                href = el.get_attribute("href") or ""
-                key = href.split("?")[0]
-                if key and key not in seen:
-                    seen.add(key)
-                    urls.append(href)
+            harvest()
+            log("Reached the end of the results list.")
             break
 
         stale_rounds = stale_rounds + 1 if len(urls) == before else 0
@@ -158,15 +244,24 @@ def attr_or_empty(page: Page, selector: str, attr: str) -> str:
 
 def scrape_place(page: Page, url: str) -> Place:
     page.goto(url, wait_until="domcontentloaded", timeout=60000)
-    page.wait_for_timeout(2500)
+    page.wait_for_selector('div[role="main"] h1', timeout=15000)
+    page.wait_for_timeout(1200)
 
     p = Place(google_maps_url=page.url.split("?")[0])
     p.latitude, p.longitude = parse_coords_from_url(page.url)
 
-    p.name = text_or_empty(page, "h1")
+    p.name = text_or_empty(page, 'div[role="main"] h1')
     p.category = text_or_empty(page, 'button[jsaction*="category"]')
 
-    # Rating and review count live in the header area, e.g. "4.6" and "(1,234)"
+    # Business status: permanently/temporarily closed banners, or open-now text.
+    for status_pat in ("Permanently closed", "Temporarily closed"):
+        if page.locator(f'div[role="main"] >> text="{status_pat}"').count():
+            p.status = status_pat
+            break
+    else:
+        p.status = "Operational"
+
+    # Rating and review count from the header area.
     rating_txt = attr_or_empty(page, 'div[role="main"] span[role="img"]', "aria-label")
     m = re.search(r"(\d+(?:\.\d+)?)", rating_txt)
     if m:
@@ -183,16 +278,20 @@ def scrape_place(page: Page, url: str) -> Place:
         p.price_level = m.group(1).strip()
 
     # Detail rows are buttons/links with data-item-id attributes.
-    p.address = attr_or_empty(page, 'button[data-item-id="address"]', "aria-label")
-    p.address = re.sub(r"^Address:\s*", "", p.address)
-
-    phone = attr_or_empty(page, 'button[data-item-id^="phone"]', "aria-label")
-    p.phone = re.sub(r"^Phone:\s*", "", phone)
-
+    p.address = re.sub(r"^Address:\s*", "",
+                       attr_or_empty(page, 'button[data-item-id="address"]', "aria-label"))
+    p.phone = re.sub(r"^Phone:\s*", "",
+                     attr_or_empty(page, 'button[data-item-id^="phone"]', "aria-label"))
     p.website = attr_or_empty(page, 'a[data-item-id="authority"]', "href")
+    p.plus_code = re.sub(r"^Plus code:\s*", "",
+                         attr_or_empty(page, 'button[data-item-id="oloc"]', "aria-label"))
 
-    plus_code = attr_or_empty(page, 'button[data-item-id="oloc"]', "aria-label")
-    p.plus_code = re.sub(r"^Plus code:\s*", "", plus_code)
+    p.website_type = classify_website(p.website)
+    p.is_lead = "no" if p.website_type == "website" else "yes"
+
+    # A ready-to-use WhatsApp link makes outreach one click away.
+    if p.phone.startswith("+"):
+        p.whatsapp_link = "https://wa.me/" + re.sub(r"\D", "", p.phone)
 
     # Opening hours: expand the hours section if present, then read the table.
     try:
@@ -202,7 +301,7 @@ def scrape_place(page: Page, url: str) -> Place:
         ).first
         if hours_toggle.count():
             hours_toggle.click(timeout=2000)
-            page.wait_for_timeout(800)
+            page.wait_for_timeout(700)
     except Exception:
         pass
     try:
@@ -219,25 +318,67 @@ def scrape_place(page: Page, url: str) -> Place:
     return p
 
 
-def write_csv(places: list[Place], path: str) -> None:
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=FIELDNAMES)
-        w.writeheader()
-        for p in places:
-            row = asdict(p)
-            row["opening_hours"] = "; ".join(
-                f"{d}: {h}" for d, h in p.opening_hours.items()
-            )
-            w.writerow(row)
+def find_emails(page: Page, website: str, timeout_ms: int = 15000) -> str:
+    """Visit a business website and pull email addresses from the homepage
+    and its contact page (if one is linked)."""
+    found: list[str] = []
+
+    def harvest(u: str) -> None:
+        try:
+            page.goto(u, wait_until="domcontentloaded", timeout=timeout_ms)
+            page.wait_for_timeout(800)
+            html = page.content()
+        except Exception:
+            return
+        for m in EMAIL_RE.findall(html):
+            e = m.strip().lower()
+            if not EMAIL_JUNK.search(e) and e not in found:
+                found.append(e)
+
+    harvest(website)
+
+    # Try a linked contact page for more addresses.
+    try:
+        contact = page.locator(
+            'a[href*="contact" i], a:has-text("Contact")').first
+        href = contact.get_attribute("href", timeout=1500) if contact.count() else None
+        if href:
+            harvest(urllib.parse.urljoin(website, href))
+    except Exception:
+        pass
+
+    return "; ".join(found[:5])
 
 
-def write_json(places: list[Place], path: str) -> None:
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump([asdict(p) for p in places], f, ensure_ascii=False, indent=2)
+def place_row(p: Place) -> dict:
+    row = asdict(p)
+    row["opening_hours"] = "; ".join(f"{d}: {h}" for d, h in p.opening_hours.items())
+    return row
+
+
+class IncrementalCSV:
+    """Appends rows as they are scraped so a crash never loses progress."""
+
+    def __init__(self, path: str):
+        self.path = path
+        new_file = not os.path.exists(path) or os.path.getsize(path) == 0
+        self.f = open(path, "a", newline="", encoding="utf-8")
+        self.w = csv.DictWriter(self.f, fieldnames=FIELDNAMES)
+        if new_file:
+            self.w.writeheader()
+            self.f.flush()
+
+    def write(self, p: Place) -> None:
+        self.w.writerow(place_row(p))
+        self.f.flush()
+
+    def close(self) -> None:
+        self.f.close()
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Scrape Google Maps search results.")
+    ap = argparse.ArgumentParser(
+        description="Scrape Google Maps search results (no API key needed).")
     ap.add_argument("query", help='Search query, e.g. "restaurants in Beirut"')
     ap.add_argument("-n", "--max-results", type=int, default=20,
                     help="Maximum number of places to scrape (default 20)")
@@ -245,17 +386,26 @@ def main() -> int:
                     help="Output file basename without extension (default: results)")
     ap.add_argument("--format", choices=["csv", "json", "both"], default="both",
                     help="Output format (default: both)")
+    ap.add_argument("--leads-only", action="store_true",
+                    help="Keep only places WITHOUT a real website "
+                         "(none or social-media-only)")
+    ap.add_argument("--emails", action="store_true",
+                    help="Visit each business website to extract email addresses "
+                         "(slower)")
     ap.add_argument("--headful", action="store_true",
                     help="Run with a visible browser window")
     ap.add_argument("--lang", default="en", help="UI language (default: en)")
     ap.add_argument("--delay", type=float, default=1.0,
                     help="Delay in seconds between place visits (default 1.0)")
+    ap.add_argument("--retries", type=int, default=2,
+                    help="Attempts per place before skipping it (default 2)")
     args = ap.parse_args()
 
     with sync_playwright() as pw:
         browser = pw.chromium.launch(
             headless=not args.headful,
-            args=["--disable-blink-features=AutomationControlled", "--lang=" + args.lang],
+            args=["--disable-blink-features=AutomationControlled",
+                  "--lang=" + args.lang],
         )
         context = browser.new_context(
             viewport={"width": 1440, "height": 900},
@@ -271,28 +421,64 @@ def main() -> int:
         urls = collect_result_urls(page, args.query, args.max_results)
         log(f"Found {len(urls)} result link(s). Scraping details...")
 
+        inc_csv = IncrementalCSV(args.output + ".csv") \
+            if args.format in ("csv", "both") else None
+        email_page = context.new_page() if args.emails else None
+
         places: list[Place] = []
         for i, url in enumerate(urls, 1):
-            try:
-                place = scrape_place(page, url)
-                places.append(place)
-                log(f"  [{i}/{len(urls)}] {place.name or '(unnamed)'}")
-            except Exception as e:
-                log(f"  [{i}/{len(urls)}] failed: {e}")
+            place = None
+            for attempt in range(1, args.retries + 1):
+                try:
+                    place = scrape_place(page, url)
+                    break
+                except Exception as e:
+                    log(f"  [{i}/{len(urls)}] attempt {attempt} failed: "
+                        f"{type(e).__name__}: {e}")
+                    page.wait_for_timeout(2000)
+            if place is None:
+                continue
+            if args.leads_only and place.is_lead != "yes":
+                log(f"  [{i}/{len(urls)}] {place.name} — has website, skipped "
+                    f"(--leads-only)")
+                time.sleep(args.delay)
+                continue
+
+            if email_page is not None and place.website and \
+                    place.website_type == "website":
+                place.emails = find_emails(email_page, place.website)
+
+            places.append(place)
+            if inc_csv:
+                inc_csv.write(place)
+
+            tag = "LEAD" if place.is_lead == "yes" else place.website_type
+            log(f"  [{i}/{len(urls)}] {place.name or '(unnamed)'}  [{tag}]"
+                + (f"  emails: {place.emails}" if place.emails else ""))
             time.sleep(args.delay)
 
+        if inc_csv:
+            inc_csv.close()
         browser.close()
 
     if not places:
         log("No places scraped.")
         return 1
 
-    if args.format in ("csv", "both"):
-        write_csv(places, args.output + ".csv")
-        log(f"Wrote {args.output}.csv")
     if args.format in ("json", "both"):
-        write_json(places, args.output + ".json")
+        with open(args.output + ".json", "w", encoding="utf-8") as f:
+            json.dump([place_row(p) for p in places], f,
+                      ensure_ascii=False, indent=2)
         log(f"Wrote {args.output}.json")
+    if args.format in ("csv", "both"):
+        log(f"Wrote {args.output}.csv")
+
+    leads = sum(1 for p in places if p.is_lead == "yes")
+    social = sum(1 for p in places
+                 if p.website_type not in ("none", "website"))
+    log(f"Summary: {len(places)} place(s) scraped — "
+        f"{leads} lead(s) without a real website "
+        f"({social} of them social-media-only).")
     return 0
 
 
