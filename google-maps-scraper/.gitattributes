@@ -1,0 +1,9 @@
+# Windows batch files must keep CRLF line endings or they fail to run
+# (the window flashes open and closes). Treat as binary so the exact
+# bytes are preserved everywhere, including GitHub "Download ZIP".
+*.bat -text
+
+# Keep these with Unix (LF) line endings.
+*.sh    text eol=lf
+*.command text eol=lf
+*.py    text eol=lf
