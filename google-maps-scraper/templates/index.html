@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maps Lead Center</title>
+<style>
+:root{
+  --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
+  --text:#e8eaf0; --muted:#8b93a5; --accent:#22c55e; --accent2:#16a34a;
+  --orange:#f59e0b; --red:#ef4444; --blue:#3b82f6; --purple:#a78bfa;
+  --r:12px; --font:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+.layout{display:grid;grid-template-columns:320px 1fr;min-height:100vh}
+@media(max-width:900px){.layout{grid-template-columns:1fr}}
+
+/* ---- sidebar ---- */
+.sidebar{background:var(--panel);border-right:1px solid var(--line);padding:20px;display:flex;flex-direction:column;gap:16px}
+.brand{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700}
+.brand .dot{width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.card h3{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:12px}
+label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+input[type=text],input[type=number],select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 12px;font-size:14px;outline:none}
+input[type=text]:focus,input[type=number]:focus,select:focus{border-color:var(--accent)}
+.modetabs{display:flex;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:4px}
+.mtab{flex:1;border:none;background:transparent;color:var(--muted);font-size:12.5px;font-weight:600;padding:7px 4px;border-radius:6px;cursor:pointer}
+.mtab.on{background:var(--panel);color:var(--text);box-shadow:0 0 0 1px var(--line)}
+.mtab:last-child.on{background:#14351f;color:#5ee08a;box-shadow:0 0 0 1px #1f4a2e}
+.score{display:inline-block;min-width:34px;text-align:center;padding:2px 8px;border-radius:6px;font-weight:800;font-size:12px}
+.score-hot{background:#3d2413;color:#ffb066;box-shadow:0 0 0 1px #7c4a1e}
+.score-warm{background:#33301a;color:#ffe08a}
+.score-cool{background:#252a35;color:#9aa5bb}
+.chk{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--text);cursor:pointer}
+.chk input{accent-color:var(--accent);width:15px;height:15px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;transition:.15s}
+.btn-primary{background:var(--accent);color:#08130b;width:100%;margin-top:14px}
+.btn-primary:hover{background:var(--accent2)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--line);padding:6px 10px;font-size:12px}
+.btn-ghost:hover{color:var(--text);border-color:var(--muted)}
+.btn-danger{background:transparent;color:var(--red);border:1px solid var(--red);padding:6px 10px;font-size:12px}
+
+.joblist{display:flex;flex-direction:column;gap:8px;overflow-y:auto;flex:1}
+.jobitem{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;transition:.15s}
+.jobitem:hover{border-color:var(--muted)}
+.jobitem.active{border-color:var(--accent)}
+.jobitem .q{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jobitem .meta{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px}
+
+/* ---- main ---- */
+.main{padding:24px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.b-running{background:#1e3a5f;color:#7cc0ff}
+.b-done{background:#14351f;color:#5ee08a}
+.b-queued{background:#3a3320;color:#ffd166}
+.b-stopped{background:#332030;color:#e0a0d0}
+.b-error{background:#3d1a1a;color:#ff8a8a}
+.statgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+.stat .n{font-size:26px;font-weight:800}
+.stat .l{font-size:12px;color:var(--muted)}
+.stat.green .n{color:var(--accent)}
+.stat.orange .n{color:var(--orange)}
+.stat.blue .n{color:var(--blue)}
+
+.progress{height:8px;background:var(--panel2);border-radius:99px;overflow:hidden;margin-top:8px}
+.progress>div{height:100%;background:var(--accent);border-radius:99px;transition:width .4s}
+
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.chip{padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:12.5px;cursor:pointer;font-weight:600}
+.chip.on{background:var(--accent);color:#08130b;border-color:var(--accent)}
+.toolbar .search{flex:1;min-width:160px}
+.toolbar .spacer{flex:1}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{position:sticky;top:0;background:var(--panel);text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);border-bottom:1px solid var(--line);cursor:pointer;user-select:none;white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tbody tr:hover{background:rgba(255,255,255,.025)}
+.tablewrap{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:auto;max-height:60vh}
+.name{font-weight:600}
+.sub{color:var(--muted);font-size:12px}
+.wt{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700}
+.wt-lead{background:#14351f;color:#5ee08a}
+.wt-social{background:#3a2a45;color:#c9a0ff}
+.wt-hosted{background:#3a3320;color:#ffd166}
+.wt-site{background:#252a35;color:#9aa5bb}
+.linkbtns{display:flex;gap:6px;flex-wrap:wrap}
+.linkbtns a{font-size:12px;border:1px solid var(--line);border-radius:6px;padding:3px 8px;color:var(--muted)}
+.linkbtns a:hover{color:var(--text);text-decoration:none;border-color:var(--muted)}
+.wa{color:#5ee08a !important;border-color:#1f4a2e !important}
+
+.logwrap{background:var(--panel);border:1px solid var(--line);border-radius:var(--r)}
+.logwrap summary{padding:12px 16px;cursor:pointer;font-weight:600;color:var(--muted);font-size:13px}
+.log{max-height:220px;overflow-y:auto;padding:0 16px 14px;font-family:ui-monospace,Consolas,monospace;font-size:12px;color:#9fb3a9;white-space:pre-wrap}
+.empty{color:var(--muted);text-align:center;padding:60px 20px}
+.empty h2{color:var(--text);margin-bottom:8px}
+.rowhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.rowhead h1{font-size:20px;flex:1;min-width:200px}
+.note{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand"><span class="dot"></span> Maps Lead Center</div>
+
+    <div class="card">
+      <h3>New Scrape</h3>
+      <div class="modetabs">
+        <button class="mtab on" data-mode="custom" id="tab-custom">Custom search</button>
+        <button class="mtab" data-mode="prospects" id="tab-prospects">🌐 Website Prospects</button>
+      </div>
+      <div class="note" id="mode-hint" style="display:none;margin-top:8px">
+        Scans <b>every business type that needs a website</b> (restaurants,
+        hotels, salons, clinics, photographers, real estate…) in the area and
+        keeps only the ones <b>without a real site</b> — sorted by lead score.
+      </div>
+      <div id="what-wrap">
+      <label for="f-what">Business type</label>
+      <input type="text" id="f-what" placeholder='e.g. restaurants, barber shops…' list="whatlist">
+      <datalist id="whatlist">
+        <option>restaurants</option><option>cafes</option><option>bakeries</option>
+        <option>barber shops</option><option>beauty salons</option><option>gyms</option>
+        <option>pharmacies</option><option>dentists</option><option>clinics</option>
+        <option>hotels</option><option>guesthouses</option><option>car rentals</option>
+        <option>mechanics</option><option>car wash</option><option>florists</option>
+        <option>butchers</option><option>mini markets</option><option>boutiques</option>
+        <option>furniture stores</option><option>electronics stores</option>
+        <option>phone repair shops</option><option>photographers</option>
+        <option>event venues</option><option>catering services</option>
+        <option>nurseries</option><option>pet shops</option><option>lawyers</option>
+        <option>accountants</option><option>real estate agencies</option>
+        <option>travel agencies</option><option>driving schools</option>
+      </datalist>
+      </div>
+      <label for="f-where">Area (anywhere in Lebanon — type or pick)</label>
+      <input type="text" id="f-where" placeholder='e.g. Batroun, Achrafieh, Zahle…' list="wherelist">
+      <datalist id="wherelist">
+        <option>Beirut</option><option>Achrafieh</option><option>Hamra</option>
+        <option>Verdun</option><option>Mar Mikhael</option><option>Gemmayze</option>
+        <option>Badaro</option><option>Ras Beirut</option><option>Ain El Remmaneh</option>
+        <option>Bourj Hammoud</option><option>Sin El Fil</option><option>Dekwaneh</option>
+        <option>Furn El Chebbak</option><option>Hazmieh</option><option>Baabda</option>
+        <option>Jdeideh</option><option>Zalka</option><option>Jal El Dib</option>
+        <option>Antelias</option><option>Dbayeh</option><option>Dora</option>
+        <option>Mansourieh</option><option>Fanar</option><option>Beit Mery</option>
+        <option>Broummana</option><option>Aley</option><option>Choueifat</option>
+        <option>Khalde</option><option>Aramoun</option><option>Damour</option>
+        <option>Jounieh</option><option>Kaslik</option><option>Zouk Mosbeh</option>
+        <option>Zouk Mikael</option><option>Adma</option><option>Ghazir</option>
+        <option>Tabarja</option><option>Safra</option><option>Okaibe</option>
+        <option>Ajaltoun</option><option>Ballouneh</option><option>Faraya</option>
+        <option>Jeita</option><option>Byblos (Jbeil)</option><option>Amchit</option>
+        <option>Batroun</option><option>Chekka</option><option>Anfeh</option>
+        <option>Enfeh</option><option>Koura</option><option>Amioun</option>
+        <option>Zgharta</option><option>Ehden</option><option>Bcharre</option>
+        <option>Tripoli</option><option>Mina Tripoli</option><option>Halba</option>
+        <option>Akkar</option><option>Zahle</option><option>Chtaura</option>
+        <option>Bar Elias</option><option>Baalbek</option><option>Hermel</option>
+        <option>Rachaya</option><option>Sidon (Saida)</option><option>Tyre (Sour)</option>
+        <option>Nabatieh</option><option>Jezzine</option><option>Marjeyoun</option>
+        <option>Bint Jbeil</option><option>Hasbaya</option>
+      </datalist>
+      <label for="f-max">Max places</label>
+      <input type="number" id="f-max" value="25" min="1" max="200">
+      <label for="f-speed">Speed</label>
+      <select id="f-speed">
+        <option value="fast">⚡ Fast — 2-3x quicker, skips opening hours</option>
+        <option value="balanced" selected>⚖ Balanced — everything, still quick</option>
+        <option value="thorough">🐢 Thorough — slowest, gentlest on Google</option>
+      </select>
+      <label class="chk" id="leads-wrap"><input type="checkbox" id="f-leads"> Leads only (skip places with a website)</label>
+      <label class="chk"><input type="checkbox" id="f-emails"> Extract emails from websites (slower)</label>
+      <button class="btn btn-primary" id="f-start">▶ Start scraping</button>
+    </div>
+
+    <div class="card" style="flex:1;display:flex;flex-direction:column;min-height:120px">
+      <h3>Runs</h3>
+      <div class="joblist" id="joblist"></div>
+    </div>
+  </aside>
+
+  <main class="main" id="main">
+    <div class="empty" id="empty">
+      <h2>Welcome 👋</h2>
+      <p>Pick a <b>business type</b> and an <b>area</b> on the left (type anything or choose from the list), then hit <b>Start scraping</b>.<br>
+      Results appear here live — leads (businesses without a real website) are highlighted.</p>
+    </div>
+
+    <div id="detail" style="display:none;display:none;flex-direction:column;gap:16px">
+      <div class="rowhead">
+        <h1 id="d-query"></h1>
+        <span class="badge" id="d-status"></span>
+        <button class="btn btn-ghost" id="d-stop">■ Stop</button>
+        <a class="btn btn-ghost" id="d-csv" href="#">⬇ CSV</a>
+        <a class="btn btn-ghost" id="d-json" href="#">⬇ JSON</a>
+        <button class="btn btn-danger" id="d-delete">🗑 Delete</button>
+      </div>
+
+      <div>
+        <div class="statgrid">
+          <div class="stat blue"><div class="n" id="s-total">0</div><div class="l">Places scraped</div></div>
+          <div class="stat green"><div class="n" id="s-leads">0</div><div class="l">Leads (no real website)</div></div>
+          <div class="stat orange"><div class="n" id="s-social">0</div><div class="l">Social-media-only</div></div>
+          <div class="stat"><div class="n" id="s-site">0</div><div class="l">Already have a website</div></div>
+        </div>
+        <div class="progress"><div id="d-progress" style="width:0%"></div></div>
+        <div class="note" id="d-progresstext"></div>
+      </div>
+
+      <div class="toolbar">
+        <button class="chip on" data-filter="all">All</button>
+        <button class="chip" data-filter="hot">🔥 Hot leads (70+)</button>
+        <button class="chip" data-filter="leads">Leads only</button>
+        <button class="chip" data-filter="none">No web presence</button>
+        <button class="chip" data-filter="social">Social only</button>
+        <button class="chip" data-filter="site">Has website</button>
+        <span class="spacer"></span>
+        <input type="text" class="search" id="d-search" placeholder="Search name, address, category…">
+      </div>
+
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th data-sort="name">Business</th>
+            <th data-sort="lead_score">Score</th>
+            <th data-sort="rating">Rating</th>
+            <th data-sort="phone">Contact</th>
+            <th data-sort="website_type">Web presence</th>
+            <th data-sort="address">Address</th>
+            <th>Links</th>
+          </tr></thead>
+          <tbody id="d-rows"></tbody>
+        </table>
+      </div>
+
+      <details class="logwrap">
+        <summary>Activity log</summary>
+        <div class="log" id="d-log"></div>
+      </details>
+    </div>
+  </main>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let jobs = [], activeId = null, activeJob = null, logOffset = 0;
+let filter = 'all', search = '', sortKey = '', sortDir = 1;
+let pollTimer = null;
+
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+
+async function api(path, opts){const r = await fetch(path, opts); return r.json();}
+
+/* ---------- jobs list ---------- */
+async function refreshJobs(){
+  jobs = await api('/api/jobs');
+  const wrap = $('joblist');
+  wrap.innerHTML = jobs.length ? '' : '<div class="note">No runs yet.</div>';
+  for(const j of jobs){
+    const el = document.createElement('div');
+    el.className = 'jobitem' + (j.id===activeId?' active':'');
+    el.innerHTML = `<div class="q">${esc(j.query)}</div>
+      <div class="meta"><span>${esc(j.created_at.slice(5,16))}</span>
+      <span>${j.scraped} places · ${j.leads} leads</span>
+      <span class="badge b-${j.status}">${j.status}</span></div>`;
+    el.onclick = () => selectJob(j.id);
+    wrap.appendChild(el);
+  }
+}
+
+/* ---------- mode tabs ---------- */
+let mode = 'custom';
+for(const t of document.querySelectorAll('.mtab')) t.onclick = ()=>{
+  mode = t.dataset.mode;
+  document.querySelectorAll('.mtab').forEach(x=>x.classList.toggle('on', x===t));
+  $('what-wrap').style.display = mode==='custom' ? '' : 'none';
+  $('leads-wrap').style.display = mode==='custom' ? '' : 'none';
+  $('mode-hint').style.display = mode==='custom' ? 'none' : '';
+};
+
+/* ---------- start job ---------- */
+function buildQuery(){
+  const what = $('f-what').value.trim();
+  const where = $('f-where').value.trim().replace(/\s*\(.*\)\s*$/,'');
+  if(!what) return '';
+  if(!where) return what;
+  // Avoid "… Lebanon, Lebanon" when the user already typed the country.
+  const suffix = /lebanon/i.test(where) ? '' : ', Lebanon';
+  return `${what} in ${where}${suffix}`;
+}
+$('f-start').onclick = async () => {
+  const payload = {max_results:+$('f-max').value||25,
+    speed:$('f-speed').value, emails:$('f-emails').checked};
+  if(mode==='prospects'){
+    const where = $('f-where').value.trim().replace(/\s*\(.*\)\s*$/,'');
+    if(!where){ $('f-where').focus(); return; }
+    payload.campaign_area = where;
+  }else{
+    const query = buildQuery();
+    if(!query){ $('f-what').focus(); return; }
+    payload.query = query;
+    payload.leads_only = $('f-leads').checked;
+  }
+  $('f-start').disabled = true;
+  const j = await api('/api/jobs', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(payload)});
+  $('f-start').disabled = false;
+  await refreshJobs();
+  selectJob(j.id);
+};
+for(const id of ['f-what','f-where'])
+  $(id).addEventListener('keydown', e=>{ if(e.key==='Enter') $('f-start').click(); });
+
+/* ---------- job detail ---------- */
+function selectJob(id){
+  activeId = id; logOffset = 0; $('d-log').textContent = '';
+  sortKey=''; sortDir=1;
+  $('empty').style.display='none';
+  $('detail').style.display='flex';
+  document.querySelectorAll('.jobitem').forEach(e=>e.classList.remove('active'));
+  refreshJobs();
+  pollActive(true);
+}
+
+async function pollActive(force){
+  if(!activeId) return;
+  const j = await api(`/api/jobs/${activeId}?after=${logOffset}`);
+  activeJob = j;
+  logOffset = j.log_offset;
+  if(j.log.length){
+    $('d-log').textContent += (($('d-log').textContent?'\n':'') + j.log.join('\n'));
+    $('d-log').scrollTop = $('d-log').scrollHeight;
+  }
+  renderDetail(j);
+  clearTimeout(pollTimer);
+  if(j.status==='running'||j.status==='queued'){
+    pollTimer = setTimeout(()=>pollActive(false), 1500);
+  }
+  if(force||j.status!=='running') refreshJobs();
+}
+
+function renderDetail(j){
+  $('d-query').textContent = j.query;
+  const st = $('d-status');
+  st.textContent = j.status; st.className = 'badge b-'+j.status;
+  $('d-stop').style.display = (j.status==='running'||j.status==='queued')?'':'none';
+  $('d-delete').style.display = (j.status==='running')?'none':'';
+  $('d-csv').href = `/download/${j.id}.csv`;
+  $('d-json').href = `/download/${j.id}.json`;
+
+  const rs = j.results;
+  const social = rs.filter(r=>!['none','website'].includes(r.website_type)).length;
+  $('s-total').textContent = rs.length;
+  $('s-leads').textContent = rs.filter(r=>r.is_lead==='yes').length;
+  $('s-social').textContent = social;
+  $('s-site').textContent = rs.filter(r=>r.website_type==='website').length;
+
+  const total = j.total_urls||0;
+  const pct = (j.status==='done'||j.status==='stopped') ? 100 :
+    (total? Math.round(100*Math.min(j.scraped,total)/total) : 0);
+  $('d-progress').style.width = pct+'%';
+  const speedTag = j.speed ? ` · ${j.speed} mode` : '';
+  $('d-progresstext').textContent = (total? `${j.scraped} of ${total} places · ${pct}%` : (j.status==='running'?'Searching…':'')) + speedTag;
+
+  renderRows();
+}
+
+function wtBadge(r){
+  if(r.website_type==='website') return '<span class="wt wt-site">website</span>';
+  if(r.website_type==='none') return '<span class="wt wt-lead">LEAD · none</span>';
+  if(r.website_type==='hosted-page'||r.website_type==='shortlink')
+    return `<span class="wt wt-hosted">LEAD · ${esc(r.website_type)}</span>`;
+  return `<span class="wt wt-social">LEAD · ${esc(r.website_type)}</span>`;
+}
+
+function rowMatches(r){
+  if(filter==='hot' && !(r.is_lead==='yes' && (+r.lead_score||0)>=70)) return false;
+  if(filter==='leads' && r.is_lead!=='yes') return false;
+  if(filter==='none' && r.website_type!=='none') return false;
+  if(filter==='social' && ['none','website','hosted-page','shortlink'].includes(r.website_type)) return false;
+  if(filter==='site' && r.website_type!=='website') return false;
+  if(search){
+    const hay = (r.name+' '+r.address+' '+r.category+' '+r.phone).toLowerCase();
+    if(!hay.includes(search)) return false;
+  }
+  return true;
+}
+
+function scoreBadge(r){
+  if(r.is_lead!=='yes') return '<span class="sub">—</span>';
+  const s = +r.lead_score||0;
+  const cls = s>=70?'score-hot':s>=40?'score-warm':'score-cool';
+  return `<span class="score ${cls}">${s>=70?'🔥':''}${s}</span>`;
+}
+
+function renderRows(){
+  if(!activeJob) return;
+  // Campaign runs are about prioritized outreach: pre-sort by score.
+  if(activeJob.campaign && !sortKey){ sortKey='lead_score'; sortDir=-1; }
+  let rs = activeJob.results.filter(rowMatches);
+  if(sortKey){
+    rs = [...rs].sort((a,b)=>{
+      let x=a[sortKey]||'', y=b[sortKey]||'';
+      if(sortKey==='rating'||sortKey==='lead_score'){x=+x||0;y=+y||0;}
+      return (x<y?-1:x>y?1:0)*sortDir;
+    });
+  }
+  const tb = $('d-rows');
+  tb.innerHTML = rs.map(r=>{
+    const links = [];
+    if(r.whatsapp_link) links.push(`<a class="wa" href="${esc(r.whatsapp_link)}" target="_blank">WhatsApp</a>`);
+    if(r.google_maps_url) links.push(`<a href="${esc(r.google_maps_url)}" target="_blank">Maps</a>`);
+    if(r.website) links.push(`<a href="${esc(r.website)}" target="_blank">Site</a>`);
+    const closed = r.status && r.status!=='Operational' ? ` <span class="wt" style="background:#3d1a1a;color:#ff8a8a">${esc(r.status)}</span>`:'';
+    return `<tr>
+      <td><div class="name">${esc(r.name)}${closed}</div><div class="sub">${esc(r.category)}</div></td>
+      <td>${scoreBadge(r)}</td>
+      <td>${r.rating?('★ '+esc(r.rating)+' <span class="sub">('+esc(r.reviews_count||'0')+')</span>'):'<span class="sub">—</span>'}</td>
+      <td>${esc(r.phone)||'<span class="sub">—</span>'}${r.emails?`<div class="sub">${esc(r.emails)}</div>`:''}</td>
+      <td>${wtBadge(r)}</td>
+      <td class="sub">${esc(r.address)}</td>
+      <td><div class="linkbtns">${links.join('')}</div></td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="7" class="sub" style="text-align:center;padding:30px">No matching places${activeJob.status==='running'?' yet — scraping…':''}</td></tr>`;
+}
+
+/* filters, search, sort */
+document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{
+  document.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
+  c.classList.add('on'); filter=c.dataset.filter; renderRows();
+});
+$('d-search').oninput = e=>{search=e.target.value.toLowerCase(); renderRows();};
+document.querySelectorAll('th[data-sort]').forEach(th=>th.onclick=()=>{
+  const k = th.dataset.sort;
+  if(sortKey===k) sortDir*=-1; else {sortKey=k; sortDir=1;}
+  renderRows();
+});
+
+/* stop & delete */
+$('d-stop').onclick = async ()=>{ await api(`/api/jobs/${activeId}/stop`,{method:'POST'}); };
+$('d-delete').onclick = async ()=>{
+  if(!confirm('Delete this run and its files?')) return;
+  await api(`/api/jobs/${activeId}/delete`,{method:'POST'});
+  activeId=null; activeJob=null;
+  $('detail').style.display='none'; $('empty').style.display='';
+  refreshJobs();
+};
+
+/* boot */
+refreshJobs();
+setInterval(refreshJobs, 4000);
+</script>
+</body>
+</html>
