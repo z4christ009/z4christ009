@@ -27,6 +27,14 @@ a:hover{text-decoration:underline}
 label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
 input[type=text],input[type=number],select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 12px;font-size:14px;outline:none}
 input[type=text]:focus,input[type=number]:focus,select:focus{border-color:var(--accent)}
+.modetabs{display:flex;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:4px}
+.mtab{flex:1;border:none;background:transparent;color:var(--muted);font-size:12.5px;font-weight:600;padding:7px 4px;border-radius:6px;cursor:pointer}
+.mtab.on{background:var(--panel);color:var(--text);box-shadow:0 0 0 1px var(--line)}
+.mtab:last-child.on{background:#14351f;color:#5ee08a;box-shadow:0 0 0 1px #1f4a2e}
+.score{display:inline-block;min-width:34px;text-align:center;padding:2px 8px;border-radius:6px;font-weight:800;font-size:12px}
+.score-hot{background:#3d2413;color:#ffb066;box-shadow:0 0 0 1px #7c4a1e}
+.score-warm{background:#33301a;color:#ffe08a}
+.score-cool{background:#252a35;color:#9aa5bb}
 .chk{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--text);cursor:pointer}
 .chk input{accent-color:var(--accent);width:15px;height:15px}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;transition:.15s}
@@ -103,6 +111,16 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
 
     <div class="card">
       <h3>New Scrape</h3>
+      <div class="modetabs">
+        <button class="mtab on" data-mode="custom" id="tab-custom">Custom search</button>
+        <button class="mtab" data-mode="prospects" id="tab-prospects">🌐 Website Prospects</button>
+      </div>
+      <div class="note" id="mode-hint" style="display:none;margin-top:8px">
+        Scans <b>every business type that needs a website</b> (restaurants,
+        hotels, salons, clinics, photographers, real estate…) in the area and
+        keeps only the ones <b>without a real site</b> — sorted by lead score.
+      </div>
+      <div id="what-wrap">
       <label for="f-what">Business type</label>
       <input type="text" id="f-what" placeholder='e.g. restaurants, barber shops…' list="whatlist">
       <datalist id="whatlist">
@@ -119,6 +137,7 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
         <option>accountants</option><option>real estate agencies</option>
         <option>travel agencies</option><option>driving schools</option>
       </datalist>
+      </div>
       <label for="f-where">Area (anywhere in Lebanon — type or pick)</label>
       <input type="text" id="f-where" placeholder='e.g. Batroun, Achrafieh, Zahle…' list="wherelist">
       <datalist id="wherelist">
@@ -155,7 +174,7 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
         <option value="balanced" selected>⚖ Balanced — everything, still quick</option>
         <option value="thorough">🐢 Thorough — slowest, gentlest on Google</option>
       </select>
-      <label class="chk"><input type="checkbox" id="f-leads"> Leads only (skip places with a website)</label>
+      <label class="chk" id="leads-wrap"><input type="checkbox" id="f-leads"> Leads only (skip places with a website)</label>
       <label class="chk"><input type="checkbox" id="f-emails"> Extract emails from websites (slower)</label>
       <button class="btn btn-primary" id="f-start">▶ Start scraping</button>
     </div>
@@ -196,6 +215,7 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
 
       <div class="toolbar">
         <button class="chip on" data-filter="all">All</button>
+        <button class="chip" data-filter="hot">🔥 Hot leads (70+)</button>
         <button class="chip" data-filter="leads">Leads only</button>
         <button class="chip" data-filter="none">No web presence</button>
         <button class="chip" data-filter="social">Social only</button>
@@ -208,6 +228,7 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
         <table>
           <thead><tr>
             <th data-sort="name">Business</th>
+            <th data-sort="lead_score">Score</th>
             <th data-sort="rating">Rating</th>
             <th data-sort="phone">Contact</th>
             <th data-sort="website_type">Web presence</th>
@@ -253,6 +274,16 @@ async function refreshJobs(){
   }
 }
 
+/* ---------- mode tabs ---------- */
+let mode = 'custom';
+for(const t of document.querySelectorAll('.mtab')) t.onclick = ()=>{
+  mode = t.dataset.mode;
+  document.querySelectorAll('.mtab').forEach(x=>x.classList.toggle('on', x===t));
+  $('what-wrap').style.display = mode==='custom' ? '' : 'none';
+  $('leads-wrap').style.display = mode==='custom' ? '' : 'none';
+  $('mode-hint').style.display = mode==='custom' ? 'none' : '';
+};
+
 /* ---------- start job ---------- */
 function buildQuery(){
   const what = $('f-what').value.trim();
@@ -264,14 +295,22 @@ function buildQuery(){
   return `${what} in ${where}${suffix}`;
 }
 $('f-start').onclick = async () => {
-  const query = buildQuery();
-  if(!query){ $('f-what').focus(); return; }
+  const payload = {max_results:+$('f-max').value||25,
+    speed:$('f-speed').value, emails:$('f-emails').checked};
+  if(mode==='prospects'){
+    const where = $('f-where').value.trim().replace(/\s*\(.*\)\s*$/,'');
+    if(!where){ $('f-where').focus(); return; }
+    payload.campaign_area = where;
+  }else{
+    const query = buildQuery();
+    if(!query){ $('f-what').focus(); return; }
+    payload.query = query;
+    payload.leads_only = $('f-leads').checked;
+  }
   $('f-start').disabled = true;
   const j = await api('/api/jobs', {method:'POST',
     headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({query, max_results:+$('f-max').value||25,
-      speed:$('f-speed').value,
-      leads_only:$('f-leads').checked, emails:$('f-emails').checked})});
+    body: JSON.stringify(payload)});
   $('f-start').disabled = false;
   await refreshJobs();
   selectJob(j.id);
@@ -282,6 +321,7 @@ for(const id of ['f-what','f-where'])
 /* ---------- job detail ---------- */
 function selectJob(id){
   activeId = id; logOffset = 0; $('d-log').textContent = '';
+  sortKey=''; sortDir=1;
   $('empty').style.display='none';
   $('detail').style.display='flex';
   document.querySelectorAll('.jobitem').forEach(e=>e.classList.remove('active'));
@@ -323,7 +363,8 @@ function renderDetail(j){
   $('s-site').textContent = rs.filter(r=>r.website_type==='website').length;
 
   const total = j.total_urls||0;
-  const pct = total? Math.round(100*Math.min(j.scraped,total)/total) : (j.status==='done'?100:0);
+  const pct = (j.status==='done'||j.status==='stopped') ? 100 :
+    (total? Math.round(100*Math.min(j.scraped,total)/total) : 0);
   $('d-progress').style.width = pct+'%';
   const speedTag = j.speed ? ` · ${j.speed} mode` : '';
   $('d-progresstext').textContent = (total? `${j.scraped} of ${total} places · ${pct}%` : (j.status==='running'?'Searching…':'')) + speedTag;
@@ -340,6 +381,7 @@ function wtBadge(r){
 }
 
 function rowMatches(r){
+  if(filter==='hot' && !(r.is_lead==='yes' && (+r.lead_score||0)>=70)) return false;
   if(filter==='leads' && r.is_lead!=='yes') return false;
   if(filter==='none' && r.website_type!=='none') return false;
   if(filter==='social' && ['none','website','hosted-page','shortlink'].includes(r.website_type)) return false;
@@ -351,13 +393,22 @@ function rowMatches(r){
   return true;
 }
 
+function scoreBadge(r){
+  if(r.is_lead!=='yes') return '<span class="sub">—</span>';
+  const s = +r.lead_score||0;
+  const cls = s>=70?'score-hot':s>=40?'score-warm':'score-cool';
+  return `<span class="score ${cls}">${s>=70?'🔥':''}${s}</span>`;
+}
+
 function renderRows(){
   if(!activeJob) return;
+  // Campaign runs are about prioritized outreach: pre-sort by score.
+  if(activeJob.campaign && !sortKey){ sortKey='lead_score'; sortDir=-1; }
   let rs = activeJob.results.filter(rowMatches);
   if(sortKey){
     rs = [...rs].sort((a,b)=>{
       let x=a[sortKey]||'', y=b[sortKey]||'';
-      if(sortKey==='rating'){x=+x||0;y=+y||0;}
+      if(sortKey==='rating'||sortKey==='lead_score'){x=+x||0;y=+y||0;}
       return (x<y?-1:x>y?1:0)*sortDir;
     });
   }
@@ -370,13 +421,14 @@ function renderRows(){
     const closed = r.status && r.status!=='Operational' ? ` <span class="wt" style="background:#3d1a1a;color:#ff8a8a">${esc(r.status)}</span>`:'';
     return `<tr>
       <td><div class="name">${esc(r.name)}${closed}</div><div class="sub">${esc(r.category)}</div></td>
+      <td>${scoreBadge(r)}</td>
       <td>${r.rating?('★ '+esc(r.rating)+' <span class="sub">('+esc(r.reviews_count||'0')+')</span>'):'<span class="sub">—</span>'}</td>
       <td>${esc(r.phone)||'<span class="sub">—</span>'}${r.emails?`<div class="sub">${esc(r.emails)}</div>`:''}</td>
       <td>${wtBadge(r)}</td>
       <td class="sub">${esc(r.address)}</td>
       <td><div class="linkbtns">${links.join('')}</div></td>
     </tr>`;
-  }).join('') || `<tr><td colspan="6" class="sub" style="text-align:center;padding:30px">No matching places${activeJob.status==='running'?' yet — scraping…':''}</td></tr>`;
+  }).join('') || `<tr><td colspan="7" class="sub" style="text-align:center;padding:30px">No matching places${activeJob.status==='running'?' yet — scraping…':''}</td></tr>`;
 }
 
 /* filters, search, sort */

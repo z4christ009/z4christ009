@@ -21,11 +21,41 @@ two), then opens the control center at **http://localhost:8765**. Next runs
 start instantly. Keep the window it opens running; close it (or press
 Ctrl+C) to stop.
 
+## 🌐 Website Prospects mode
+
+The fastest way to fill a pipeline: switch to the **Website Prospects** tab,
+pick an area, hit Start. It scans **every business type that genuinely needs
+a website** — restaurants, cafes, caterers, hotels, guesthouses, event and
+wedding venues, salons, barbers, spas, gyms, dental/medical/physio clinics,
+photographers, interior designers, architects, real estate, travel agencies,
+car rentals, law and accounting firms, private schools, nurseries — and keeps
+**only the ones without a real site**, deduplicated across categories, until
+it reaches your target count.
+
+Results come **pre-sorted by lead score** (see below), so the top of the list
+is literally your call sheet.
+
+## 🔥 Lead scoring
+
+Every lead gets a **0–100 score** answering "how promising is this prospect?":
+
+- **Established** — review count (up to 40 pts) and rating (up to 20 pts):
+  a busy, well-rated business has customers, cares about reputation, and can
+  afford a website.
+- **Reachable** — has a phone number (15 pts).
+- **Ready to buy** — already invests in an Instagram/Facebook page (15 pts)
+  or even pays for a hosted menu page (20 pts) but owns no real site: they
+  already believe in being online, they just need you.
+
+Scores of **70+ get the 🔥 hot badge** and their own filter chip. Closed
+businesses score 0.
+
 ## The control center
 
-- **New Scrape panel** — type a query like `restaurants in Batroun`, set how
-  many places, pick a speed, tick *Leads only* and/or *Extract emails*, hit
-  **Start**.
+- **Two modes** — *Custom search* (business type + area) or *Website
+  Prospects* (area only, scans all website-needing types).
+- **New Scrape panel** — set how many places, pick a speed, tick *Leads only*
+  and/or *Extract emails*, hit **Start**.
 - **Live progress** — a progress bar, live counts, and an activity log while
   the scrape runs. Rows appear in the table as they're scraped.
 - **Stat cards** — places scraped, leads, social-media-only, already-have-a-site.
@@ -69,6 +99,7 @@ seeing CAPTCHAs or missing fields.
 | `website` | whatever Google lists, if anything |
 | `website_type` | `none`, `instagram`, `facebook`, `whatsapp`, `linktree`, `tiktok`, `social`, `hosted-page`, `shortlink`, or `website` |
 | `is_lead` | `yes` if they have no real website of their own |
+| `lead_score` | 0–100 prospect quality score (70+ = hot) |
 | `emails` | scraped from their site with the emails option |
 | `plus_code`, `latitude`, `longitude` | location data |
 | `opening_hours` | Monday: 7 AM–11 PM; ... |
@@ -88,6 +119,7 @@ python scraper.py "restaurants in Beirut"                          # basic
 python scraper.py "barber shops in Jbeil" -n 40 --leads-only       # leads only
 python scraper.py "hotels in Batroun" -n 30 --emails               # + emails
 python scraper.py "pharmacies in Tripoli" -n 50 --speed fast       # 2-3x faster
+python scraper.py --prospects "Batroun" -n 30 --speed fast         # campaign mode
 ```
 
 Options: `-n/--max-results`, `-o/--output`, `--format csv|json|both`,

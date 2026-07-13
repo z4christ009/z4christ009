@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import time
 import uuid
@@ -42,7 +43,8 @@ def job_dir(job_id: str) -> str:
 def public_meta(job: dict) -> dict:
     return {k: job.get(k, "") for k in (
         "id", "query", "max_results", "leads_only", "emails", "speed",
-        "status", "created_at", "total_urls", "scraped", "leads", "error",
+        "campaign", "status", "created_at", "total_urls", "scraped", "leads",
+        "error",
     )}
 
 
@@ -111,6 +113,7 @@ def run_job(job: dict) -> None:
     try:
         engine.run_scrape(
             query=job["query"],
+            queries=job.get("queries") or None,
             max_results=job["max_results"],
             leads_only=job["leads_only"],
             emails=job["emails"],
@@ -148,8 +151,9 @@ def list_jobs():
 def create_job():
     data = request.get_json(force=True)
     query = (data.get("query") or "").strip()
-    if not query:
-        return jsonify({"error": "query is required"}), 400
+    campaign_area = (data.get("campaign_area") or "").strip()
+    if not query and not campaign_area:
+        return jsonify({"error": "query or campaign_area is required"}), 400
     try:
         max_results = max(1, min(int(data.get("max_results") or 20), 200))
     except (TypeError, ValueError):
@@ -159,11 +163,23 @@ def create_job():
     if speed not in engine.SPEED_PROFILES:
         speed = "balanced"
 
+    queries = None
+    leads_only = bool(data.get("leads_only"))
+    if campaign_area:
+        suffix = "" if re.search(r"lebanon", campaign_area, re.I) \
+            else ", Lebanon"
+        queries = [f"{t} in {campaign_area}{suffix}"
+                   for t in engine.WEBSITE_PROSPECT_TYPES]
+        leads_only = True  # the whole point: only businesses without a site
+        query = f"🌐 Website prospects in {campaign_area}"
+
     job = {
         "id": uuid.uuid4().hex[:12],
         "query": query,
+        "queries": queries,
+        "campaign": bool(campaign_area),
         "max_results": max_results,
-        "leads_only": bool(data.get("leads_only")),
+        "leads_only": leads_only,
         "emails": bool(data.get("emails")),
         "speed": speed,
         "status": "queued",

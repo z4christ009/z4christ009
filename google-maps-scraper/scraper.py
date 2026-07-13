@@ -71,6 +71,21 @@ HOSTED_DOMAINS = (
 
 SHORTLINK_DOMAINS = ("bit.ly", "goo.gl", "tinyurl.com", "t.co", "cutt.ly")
 
+# Business types that genuinely benefit from having a website: customers
+# check menus, book appointments, browse portfolios/catalogs, or compare
+# offerings online before choosing. Used by the "Website Prospects" campaign
+# mode, which scans all of these in an area and keeps only the ones without
+# a real website.
+WEBSITE_PROSPECT_TYPES = [
+    "restaurants", "cafes", "catering services", "pastry shops",
+    "hotels", "guesthouses", "event venues", "wedding venues",
+    "beauty salons", "barber shops", "spas", "gyms",
+    "dental clinics", "medical clinics", "physiotherapy clinics",
+    "photographers", "interior designers", "architects",
+    "real estate agencies", "travel agencies", "car rental agencies",
+    "law firms", "accounting firms", "private schools", "nurseries",
+]
+
 # Speed profiles. "block_heavy" aborts image/media/font requests (the map
 # tiles and photos Google loads are useless to us — the photo URL is read
 # from the DOM attribute, which works even when the download is blocked).
@@ -86,8 +101,8 @@ SPEED_PROFILES = {
 FIELDNAMES = [
     "name", "category", "status", "rating", "reviews_count", "price_level",
     "address", "phone", "whatsapp_link", "website", "website_type", "is_lead",
-    "emails", "plus_code", "latitude", "longitude", "opening_hours",
-    "image_url", "google_maps_url",
+    "lead_score", "emails", "plus_code", "latitude", "longitude",
+    "opening_hours", "image_url", "google_maps_url",
 ]
 
 EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
@@ -122,6 +137,7 @@ class Place:
     # hosted-page | shortlink | website
     website_type: str = "none"
     is_lead: str = "yes"         # yes unless website_type == "website"
+    lead_score: int = 0          # 0-100, how promising this lead is
     emails: str = ""
     plus_code: str = ""
     latitude: str = ""
@@ -129,6 +145,57 @@ class Place:
     opening_hours: dict = field(default_factory=dict)
     image_url: str = ""
     google_maps_url: str = ""
+
+
+def score_lead(p: "Place") -> int:
+    """0-100: how promising is this lead for selling a website?
+
+    Rewards established businesses (reviews prove real customers), quality
+    (rating — a good business is worth working with and can afford it),
+    reachability (phone), and buying intent (they already invest in an
+    Instagram/Facebook page or a hosted menu but own no real site).
+    """
+    if p.is_lead != "yes" or p.status != "Operational":
+        return 0
+    score = 0
+
+    try:
+        reviews = int(p.reviews_count or 0)
+    except ValueError:
+        reviews = 0
+    for threshold, pts in ((200, 40), (100, 35), (50, 30), (20, 22),
+                           (10, 15), (5, 8)):
+        if reviews >= threshold:
+            score += pts
+            break
+    else:
+        score += 3
+
+    try:
+        rating = float(p.rating or 0)
+    except ValueError:
+        rating = 0
+    if rating >= 4.5:
+        score += 20
+    elif rating >= 4.0:
+        score += 15
+    elif rating >= 3.5:
+        score += 8
+    else:
+        score += 3
+
+    if p.phone:
+        score += 15
+
+    if p.website_type in ("hosted-page", "shortlink"):
+        score += 20   # they already paid/tried for some web presence
+    elif p.website_type in ("instagram", "facebook", "whatsapp",
+                            "linktree", "tiktok", "social"):
+        score += 15   # active online, easy conversation
+    else:
+        score += 10   # nothing at all — biggest need
+
+    return min(score, 100)
 
 
 def classify_website(url: str) -> str:
@@ -264,7 +331,10 @@ class Scraper:
 
     def collect_result_urls(self, query: str, max_results: int,
                             log: Callable[[str], None],
-                            should_stop: Callable[[], bool]) -> list[str]:
+                            should_stop: Callable[[], bool],
+                            seen: Optional[set] = None) -> list[str]:
+        """``seen`` lets campaign runs dedupe places across queries (a cafe
+        can appear under both "cafes" and "restaurants")."""
         page = self.page
         url = "https://www.google.com/maps/search/" + urllib.parse.quote(query)
         page.goto(url, wait_until="domcontentloaded", timeout=60000)
@@ -282,7 +352,8 @@ class Scraper:
             return []
 
         urls: list[str] = []
-        seen: set[str] = set()
+        if seen is None:
+            seen = set()
         stale_rounds = 0
 
         def harvest() -> None:
@@ -379,6 +450,8 @@ class Scraper:
         if p.phone.startswith("+"):
             p.whatsapp_link = "https://wa.me/" + re.sub(r"\D", "", p.phone)
 
+        p.lead_score = score_lead(p)
+
         # Hero photo of the place (useful in the dashboard). The <img> src is
         # only populated once images load, so in fast mode (image downloads
         # blocked) fall back to the photo URL Google embeds in the page data.
@@ -459,7 +532,7 @@ class Scraper:
 
 
 def run_scrape(
-    query: str,
+    query: str = "",
     max_results: int = 20,
     leads_only: bool = False,
     emails: bool = False,
@@ -468,6 +541,7 @@ def run_scrape(
     speed: str = "balanced",
     delay: Optional[float] = None,
     retries: Optional[int] = None,
+    queries: Optional[list[str]] = None,
     on_log: Optional[Callable[[str], None]] = None,
     on_place: Optional[Callable[[Place], None]] = None,
     on_total: Optional[Callable[[int], None]] = None,
@@ -477,11 +551,17 @@ def run_scrape(
 
     - ``on_log(msg)``     called with progress messages
     - ``on_place(place)`` called as each place finishes (already filtered)
-    - ``on_total(n)``     called once with the number of result links found
+    - ``on_total(n)``     called once with the expected total (for progress)
     - ``should_stop()``   polled between steps; return True to abort cleanly
 
     ``speed`` is one of "fast", "balanced", "thorough" (see SPEED_PROFILES).
     ``delay``/``retries`` override the profile when given explicitly.
+
+    Pass ``queries`` (a list) instead of ``query`` to run a multi-query
+    campaign in one browser session: places are deduplicated across queries
+    and the run stops once ``max_results`` places have been *kept* (after
+    the leads-only filter), which makes "give me 30 leads" work across
+    many business types.
     """
     log = on_log or (lambda m: print(f"[scraper] {m}", flush=True))
     stop = should_stop or (lambda: False)
@@ -490,48 +570,71 @@ def run_scrape(
     delay = profile["delay"] if delay is None else delay
     retries = profile["retries"] if retries is None else retries
 
+    campaign = queries is not None
+    query_list = queries if campaign else [query]
+    # In a campaign, max_results caps *kept* places; per-query URL collection
+    # is capped so no single type dominates the run.
+    per_query_cap = max_results if not campaign else \
+        max(4, -(-max_results * 2 // len(query_list)))
+
     started = time.time()
     scraper = Scraper(headless=headless, lang=lang, speed=speed)
     places: list[Place] = []
+    seen_ids: set = set()
     try:
-        log(f"Searching for: {query!r}  (speed: {speed})")
-        urls = scraper.collect_result_urls(query, max_results, log, stop)
-        log(f"Found {len(urls)} result link(s). Scraping details...")
         if on_total:
-            on_total(len(urls))
-
-        for i, url in enumerate(urls, 1):
-            if stop():
-                log("Stop requested — finishing up.")
+            on_total(max_results if campaign else 0)
+        for qi, q in enumerate(query_list, 1):
+            if stop() or len(places) >= max_results:
                 break
-            place = None
-            for attempt in range(1, retries + 1):
-                try:
-                    place = scraper.scrape_place(url)
+            prefix = f"[{qi}/{len(query_list)}] " if campaign else ""
+            log(f"{prefix}Searching for: {q!r}  (speed: {speed})")
+            urls = scraper.collect_result_urls(
+                q, min(per_query_cap, max_results - len(places))
+                if campaign else max_results,
+                log, stop, seen=seen_ids)
+            log(f"{prefix}Found {len(urls)} new result link(s).")
+            if not campaign and on_total:
+                on_total(len(urls))
+
+            for i, url in enumerate(urls, 1):
+                if stop():
+                    log("Stop requested — finishing up.")
                     break
-                except Exception as e:
-                    log(f"  [{i}/{len(urls)}] attempt {attempt} failed: "
-                        f"{type(e).__name__}: {e}")
-                    scraper.page.wait_for_timeout(2000)
-            if place is None:
-                continue
-            if leads_only and place.is_lead != "yes":
-                log(f"  [{i}/{len(urls)}] {place.name} — has website, skipped "
-                    f"(leads-only)")
+                if len(places) >= max_results:
+                    break
+                place = None
+                for attempt in range(1, retries + 1):
+                    try:
+                        place = scraper.scrape_place(url)
+                        break
+                    except Exception as e:
+                        log(f"  [{i}/{len(urls)}] attempt {attempt} failed: "
+                            f"{type(e).__name__}: {e}")
+                        scraper.page.wait_for_timeout(2000)
+                if place is None:
+                    continue
+                if leads_only and place.is_lead != "yes":
+                    log(f"  [{i}/{len(urls)}] {place.name} — has website, "
+                        f"skipped (leads-only)")
+                    time.sleep(delay)
+                    continue
+
+                if emails and place.website and \
+                        place.website_type == "website":
+                    place.emails = scraper.find_emails(place.website)
+
+                places.append(place)
+                if on_place:
+                    on_place(place)
+
+                tag = "LEAD" if place.is_lead == "yes" else place.website_type
+                score = f" score {place.lead_score}" \
+                    if place.is_lead == "yes" else ""
+                log(f"  [{i}/{len(urls)}] {place.name or '(unnamed)'}  "
+                    f"[{tag}]{score}"
+                    + (f"  emails: {place.emails}" if place.emails else ""))
                 time.sleep(delay)
-                continue
-
-            if emails and place.website and place.website_type == "website":
-                place.emails = scraper.find_emails(place.website)
-
-            places.append(place)
-            if on_place:
-                on_place(place)
-
-            tag = "LEAD" if place.is_lead == "yes" else place.website_type
-            log(f"  [{i}/{len(urls)}] {place.name or '(unnamed)'}  [{tag}]"
-                + (f"  emails: {place.emails}" if place.emails else ""))
-            time.sleep(delay)
     finally:
         scraper.close()
 
@@ -548,7 +651,13 @@ def run_scrape(
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="Scrape Google Maps search results (no API key needed).")
-    ap.add_argument("query", help='Search query, e.g. "restaurants in Beirut"')
+    ap.add_argument("query", nargs="?", default="",
+                    help='Search query, e.g. "restaurants in Beirut"')
+    ap.add_argument("--prospects", metavar="AREA", default="",
+                    help="Website-prospects campaign: scan every business "
+                         "type that needs a website in AREA, keeping only "
+                         "places without a real site "
+                         '(e.g. --prospects "Batroun")')
     ap.add_argument("-n", "--max-results", type=int, default=20,
                     help="Maximum number of places to scrape (default 20)")
     ap.add_argument("-o", "--output", default="results",
@@ -576,13 +685,25 @@ def main() -> int:
                     help="Override the speed profile's attempts per place")
     args = ap.parse_args()
 
+    if not args.query and not args.prospects:
+        ap.error("provide a query or --prospects AREA")
+
+    queries = None
+    leads_only = args.leads_only
+    if args.prospects:
+        area = args.prospects.strip()
+        suffix = "" if re.search(r"lebanon", area, re.I) else ", Lebanon"
+        queries = [f"{t} in {area}{suffix}" for t in WEBSITE_PROSPECT_TYPES]
+        leads_only = True
+
     inc_csv = IncrementalCSV(args.output + ".csv") \
         if args.format in ("csv", "both") else None
 
     places = run_scrape(
         query=args.query,
+        queries=queries,
         max_results=args.max_results,
-        leads_only=args.leads_only,
+        leads_only=leads_only,
         emails=args.emails,
         headless=not args.headful,
         lang=args.lang,
