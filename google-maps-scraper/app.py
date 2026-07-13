@@ -40,9 +40,9 @@ def job_dir(job_id: str) -> str:
 
 
 def public_meta(job: dict) -> dict:
-    return {k: job[k] for k in (
-        "id", "query", "max_results", "leads_only", "emails", "status",
-        "created_at", "total_urls", "scraped", "leads", "error",
+    return {k: job.get(k, "") for k in (
+        "id", "query", "max_results", "leads_only", "emails", "speed",
+        "status", "created_at", "total_urls", "scraped", "leads", "error",
     )}
 
 
@@ -115,7 +115,7 @@ def run_job(job: dict) -> None:
             leads_only=job["leads_only"],
             emails=job["emails"],
             headless=True,
-            delay=job.get("delay", 1.0),
+            speed=job.get("speed", "balanced"),
             on_log=on_log,
             on_place=on_place,
             on_total=on_total,
@@ -155,13 +155,17 @@ def create_job():
     except (TypeError, ValueError):
         max_results = 20
 
+    speed = data.get("speed") or "balanced"
+    if speed not in engine.SPEED_PROFILES:
+        speed = "balanced"
+
     job = {
         "id": uuid.uuid4().hex[:12],
         "query": query,
         "max_results": max_results,
         "leads_only": bool(data.get("leads_only")),
         "emails": bool(data.get("emails")),
-        "delay": 1.0,
+        "speed": speed,
         "status": "queued",
         "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         "total_urls": 0,

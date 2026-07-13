@@ -24,7 +24,8 @@ Ctrl+C) to stop.
 ## The control center
 
 - **New Scrape panel** — type a query like `restaurants in Batroun`, set how
-  many places, tick *Leads only* and/or *Extract emails*, hit **Start**.
+  many places, pick a speed, tick *Leads only* and/or *Extract emails*, hit
+  **Start**.
 - **Live progress** — a progress bar, live counts, and an activity log while
   the scrape runs. Rows appear in the table as they're scraped.
 - **Stat cards** — places scraped, leads, social-media-only, already-have-a-site.
@@ -36,6 +37,22 @@ Ctrl+C) to stop.
 - **Downloads** — CSV (for Excel/Sheets) and JSON per run.
 - **Run history** — past runs are saved on disk and survive restarts. Stop a
   running job any time; everything scraped so far is kept.
+
+## Speed modes
+
+The scraper always runs **silently** (headless browser, nothing pops up).
+Three speed modes control how aggressive it is — measured on the same
+10-place query:
+
+| Mode | Speed | What's different |
+|---|---|---|
+| ⚡ **Fast** | ~35–40 places/min | Blocks image/font downloads, shortest waits, skips opening hours, 1 attempt per place |
+| ⚖ **Balanced** (default) | ~15 places/min | Blocks heavy downloads, full data including hours |
+| 🐢 **Thorough** | ~10 places/min | No blocking, longest waits, 3 attempts per place — gentlest on Google, best for big runs |
+
+Fast mode extracted identical names, phones, websites, ratings, and photos in
+testing — the only field it skips is opening hours. Use Thorough if you start
+seeing CAPTCHAs or missing fields.
 
 ## Extracted fields
 
@@ -67,13 +84,15 @@ Ctrl+C) to stop.
 The scraper also works standalone, without the control center:
 
 ```bash
-python scraper.py "restaurants in Beirut"                       # basic
-python scraper.py "barber shops in Jbeil" -n 40 --leads-only    # leads only
-python scraper.py "hotels in Batroun" -n 30 --emails            # + emails
+python scraper.py "restaurants in Beirut"                          # basic
+python scraper.py "barber shops in Jbeil" -n 40 --leads-only       # leads only
+python scraper.py "hotels in Batroun" -n 30 --emails               # + emails
+python scraper.py "pharmacies in Tripoli" -n 50 --speed fast       # 2-3x faster
 ```
 
 Options: `-n/--max-results`, `-o/--output`, `--format csv|json|both`,
-`--leads-only`, `--emails`, `--headful`, `--lang`, `--delay`, `--retries`.
+`--speed fast|balanced|thorough`, `--leads-only`, `--emails`, `--headful`,
+`--lang`, `--delay`, `--retries`.
 
 ## Manual setup (if you don't use the start scripts)
 

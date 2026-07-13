@@ -71,6 +71,18 @@ HOSTED_DOMAINS = (
 
 SHORTLINK_DOMAINS = ("bit.ly", "goo.gl", "tinyurl.com", "t.co", "cutt.ly")
 
+# Speed profiles. "block_heavy" aborts image/media/font requests (the map
+# tiles and photos Google loads are useless to us — the photo URL is read
+# from the DOM attribute, which works even when the download is blocked).
+SPEED_PROFILES = {
+    "fast":     {"delay": 0.25, "settle_ms": 350,  "search_settle_ms": 1500,
+                 "hours": False, "retries": 1, "block_heavy": True},
+    "balanced": {"delay": 0.8,  "settle_ms": 1000, "search_settle_ms": 2500,
+                 "hours": True,  "retries": 2, "block_heavy": True},
+    "thorough": {"delay": 1.5,  "settle_ms": 1500, "search_settle_ms": 3000,
+                 "hours": True,  "retries": 3, "block_heavy": False},
+}
+
 FIELDNAMES = [
     "name", "category", "status", "rating", "reviews_count", "price_level",
     "address", "phone", "whatsapp_link", "website", "website_type", "is_lead",
@@ -215,7 +227,9 @@ class IncrementalCSV:
 class Scraper:
     """Drives one browser session. Reusable across queries."""
 
-    def __init__(self, headless: bool = True, lang: str = "en"):
+    def __init__(self, headless: bool = True, lang: str = "en",
+                 speed: str = "balanced"):
+        self.profile = SPEED_PROFILES.get(speed, SPEED_PROFILES["balanced"])
         self._pw = sync_playwright().start()
         self.browser = self._pw.chromium.launch(
             headless=headless,
@@ -230,6 +244,13 @@ class Scraper:
                 "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
             ),
         )
+        if self.profile["block_heavy"]:
+            self.context.route(
+                "**/*",
+                lambda route: route.abort()
+                if route.request.resource_type in ("image", "media", "font")
+                else route.continue_(),
+            )
         self.page = self.context.new_page()
         self.email_page: Optional[Page] = None
 
@@ -250,7 +271,7 @@ class Scraper:
         accept_consent(page)
 
         # A direct hit on a single place redirects to /maps/place/, no feed.
-        page.wait_for_timeout(3000)
+        page.wait_for_timeout(self.profile["search_settle_ms"])
         if "/maps/place/" in page.url:
             return [page.url]
 
@@ -286,7 +307,8 @@ class Scraper:
             before = len(urls)
             page.locator(FEED_SELECTOR).evaluate(
                 "el => el.scrollBy(0, el.scrollHeight)")
-            page.wait_for_timeout(1600)
+            page.wait_for_timeout(
+                1000 if self.profile["block_heavy"] else 1600)
 
             # "You've reached the end of the list." sentinel
             if page.locator(
@@ -305,7 +327,7 @@ class Scraper:
         page = self.page
         page.goto(url, wait_until="domcontentloaded", timeout=60000)
         page.wait_for_selector('div[role="main"] h1', timeout=15000)
-        page.wait_for_timeout(1200)
+        page.wait_for_timeout(self.profile["settle_ms"])
 
         p = Place(google_maps_url=page.url.split("?")[0])
         p.latitude, p.longitude = parse_coords_from_url(page.url)
@@ -357,15 +379,26 @@ class Scraper:
         if p.phone.startswith("+"):
             p.whatsapp_link = "https://wa.me/" + re.sub(r"\D", "", p.phone)
 
-        # Hero photo of the place (useful in the dashboard).
+        # Hero photo of the place (useful in the dashboard). The <img> src is
+        # only populated once images load, so in fast mode (image downloads
+        # blocked) fall back to the photo URL Google embeds in the page data.
         img = attr_or_empty(
             page, 'div[role="main"] button[jsaction*="heroHeaderImage"] img',
             "src")
-        if img.startswith("http"):
+        if not img.startswith("http"):
+            m = re.search(
+                r'https://lh\d+\.googleusercontent\.com/'
+                r'(?:p|gps-cs-s)/[A-Za-z0-9_-]{10,}',
+                page.content())
+            img = m.group(0) if m else ""
+        if img.startswith("http") and "staticmap" not in img:
             # Normalize Google image sizing suffix for a reasonable thumbnail.
             p.image_url = re.sub(r"=w\d+-h\d+[^\s]*$", "=w400-h300-k-no", img)
 
         # Opening hours: expand the hours section if present, read the table.
+        # Skipped entirely in fast mode.
+        if not self.profile["hours"]:
+            return p
         try:
             hours_toggle = page.locator(
                 'div[role="main"] [jsaction*="openhours"], '
@@ -432,8 +465,9 @@ def run_scrape(
     emails: bool = False,
     headless: bool = True,
     lang: str = "en",
-    delay: float = 1.0,
-    retries: int = 2,
+    speed: str = "balanced",
+    delay: Optional[float] = None,
+    retries: Optional[int] = None,
     on_log: Optional[Callable[[str], None]] = None,
     on_place: Optional[Callable[[Place], None]] = None,
     on_total: Optional[Callable[[int], None]] = None,
@@ -445,14 +479,22 @@ def run_scrape(
     - ``on_place(place)`` called as each place finishes (already filtered)
     - ``on_total(n)``     called once with the number of result links found
     - ``should_stop()``   polled between steps; return True to abort cleanly
+
+    ``speed`` is one of "fast", "balanced", "thorough" (see SPEED_PROFILES).
+    ``delay``/``retries`` override the profile when given explicitly.
     """
     log = on_log or (lambda m: print(f"[scraper] {m}", flush=True))
     stop = should_stop or (lambda: False)
 
-    scraper = Scraper(headless=headless, lang=lang)
+    profile = SPEED_PROFILES.get(speed, SPEED_PROFILES["balanced"])
+    delay = profile["delay"] if delay is None else delay
+    retries = profile["retries"] if retries is None else retries
+
+    started = time.time()
+    scraper = Scraper(headless=headless, lang=lang, speed=speed)
     places: list[Place] = []
     try:
-        log(f"Searching for: {query!r}")
+        log(f"Searching for: {query!r}  (speed: {speed})")
         urls = scraper.collect_result_urls(query, max_results, log, stop)
         log(f"Found {len(urls)} result link(s). Scraping details...")
         if on_total:
@@ -495,8 +537,11 @@ def run_scrape(
 
     leads = sum(1 for p in places if p.is_lead == "yes")
     social = sum(1 for p in places if p.website_type not in ("none", "website"))
-    log(f"Summary: {len(places)} place(s) scraped — {leads} lead(s) without "
-        f"a real website ({social} of them social-media-only).")
+    elapsed = time.time() - started
+    rate = (60 * len(places) / elapsed) if elapsed and places else 0
+    log(f"Summary: {len(places)} place(s) scraped in {elapsed:.0f}s "
+        f"({rate:.1f}/min) — {leads} lead(s) without a real website "
+        f"({social} of them social-media-only).")
     return places
 
 
@@ -517,13 +562,18 @@ def main() -> int:
     ap.add_argument("--emails", action="store_true",
                     help="Visit each business website to extract email "
                          "addresses (slower)")
+    ap.add_argument("--speed", choices=list(SPEED_PROFILES),
+                    default="balanced",
+                    help="fast = ~2-3x quicker, skips opening hours; "
+                         "balanced = everything, still quick (default); "
+                         "thorough = slowest, gentlest on Google")
     ap.add_argument("--headful", action="store_true",
                     help="Run with a visible browser window")
     ap.add_argument("--lang", default="en", help="UI language (default: en)")
-    ap.add_argument("--delay", type=float, default=1.0,
-                    help="Delay in seconds between place visits (default 1.0)")
-    ap.add_argument("--retries", type=int, default=2,
-                    help="Attempts per place before skipping it (default 2)")
+    ap.add_argument("--delay", type=float, default=None,
+                    help="Override the speed profile's delay between places")
+    ap.add_argument("--retries", type=int, default=None,
+                    help="Override the speed profile's attempts per place")
     args = ap.parse_args()
 
     inc_csv = IncrementalCSV(args.output + ".csv") \
@@ -536,6 +586,7 @@ def main() -> int:
         emails=args.emails,
         headless=not args.headful,
         lang=args.lang,
+        speed=args.speed,
         delay=args.delay,
         retries=args.retries,
         on_place=inc_csv.write if inc_csv else None,

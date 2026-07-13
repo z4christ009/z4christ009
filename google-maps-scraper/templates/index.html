@@ -25,8 +25,8 @@ a:hover{text-decoration:underline}
 .card{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r);padding:16px}
 .card h3{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:12px}
 label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
-input[type=text],input[type=number]{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 12px;font-size:14px;outline:none}
-input[type=text]:focus,input[type=number]:focus{border-color:var(--accent)}
+input[type=text],input[type=number],select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 12px;font-size:14px;outline:none}
+input[type=text]:focus,input[type=number]:focus,select:focus{border-color:var(--accent)}
 .chk{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--text);cursor:pointer}
 .chk input{accent-color:var(--accent);width:15px;height:15px}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;transition:.15s}
@@ -107,6 +107,12 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
       <input type="text" id="f-query" placeholder='e.g. restaurants in Batroun'>
       <label for="f-max">Max places</label>
       <input type="number" id="f-max" value="25" min="1" max="200">
+      <label for="f-speed">Speed</label>
+      <select id="f-speed">
+        <option value="fast">⚡ Fast — 2-3x quicker, skips opening hours</option>
+        <option value="balanced" selected>⚖ Balanced — everything, still quick</option>
+        <option value="thorough">🐢 Thorough — slowest, gentlest on Google</option>
+      </select>
       <label class="chk"><input type="checkbox" id="f-leads"> Leads only (skip places with a website)</label>
       <label class="chk"><input type="checkbox" id="f-emails"> Extract emails from websites (slower)</label>
       <button class="btn btn-primary" id="f-start">▶ Start scraping</button>
@@ -213,6 +219,7 @@ $('f-start').onclick = async () => {
   const j = await api('/api/jobs', {method:'POST',
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify({query, max_results:+$('f-max').value||25,
+      speed:$('f-speed').value,
       leads_only:$('f-leads').checked, emails:$('f-emails').checked})});
   $('f-start').disabled = false;
   $('f-query').value = '';
@@ -267,7 +274,8 @@ function renderDetail(j){
   const total = j.total_urls||0;
   const pct = total? Math.round(100*Math.min(j.scraped,total)/total) : (j.status==='done'?100:0);
   $('d-progress').style.width = pct+'%';
-  $('d-progresstext').textContent = total? `${j.scraped} of ${total} places · ${pct}%` : (j.status==='running'?'Searching…':'');
+  const speedTag = j.speed ? ` · ${j.speed} mode` : '';
+  $('d-progresstext').textContent = (total? `${j.scraped} of ${total} places · ${pct}%` : (j.status==='running'?'Searching…':'')) + speedTag;
 
   renderRows();
 }
