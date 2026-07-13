@@ -24,14 +24,21 @@ call .venv\Scripts\activate.bat
 
 python -c "import flask, playwright" >nul 2>nul
 if errorlevel 1 (
-    echo Installing dependencies (one-time)...
+    echo Installing dependencies. This happens only once and can take a
+    echo few minutes - please wait, the browser opens when it is ready...
     pip install -r requirements.txt
     python -m playwright install chromium
 )
 
 echo.
-echo  Starting Maps Lead Center at http://localhost:8765
-echo  Keep this window open. Press Ctrl+C to stop.
+echo  ============================================================
+echo    Maps Lead Center is starting...
+echo    Your browser will open at:  http://localhost:8765
+echo    If it does not open by itself, copy that link into a browser.
+echo    Keep this window open while you work. Close it to stop.
+echo  ============================================================
 echo.
+REM Fallback: open the browser a few seconds after the server boots.
+start "" /min cmd /c "timeout /t 3 >nul & start http://localhost:8765"
 python app.py
 pause

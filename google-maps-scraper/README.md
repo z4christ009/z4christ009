@@ -11,15 +11,36 @@ download CSV/JSON — all from your browser.
 
 ## Quick start — one click
 
-| Your system | Do this |
+| Your computer | Do this |
 |---|---|
-| **Windows** | Double-click `start.bat` |
-| **Mac / Linux** | Run `./start.sh` |
+| **Windows** | Double-click **`start.bat`** |
+| **Mac** | Double-click **`Start Maps Lead Center.command`** |
+| **Linux** | In a terminal, run `bash start.sh` |
 
-That's it. On first run it installs everything it needs (takes a minute or
-two), then opens the control center at **http://localhost:8765**. Next runs
-start instantly. Keep the window it opens running; close it (or press
+On the **first run** it installs everything it needs (this takes a few
+minutes — a browser engine has to download), then your web browser opens
+automatically at **http://localhost:8765**. Every run after that starts in
+seconds. Keep the little black window open while you work; close it (or press
 Ctrl+C) to stop.
+
+> **The browser didn't open?** Wait for the window to say it's ready (first
+> run is slow), then just type **http://localhost:8765** into any browser.
+
+### Common gotchas
+
+- **Double-clicking `start.sh` seems to do nothing / opens a text editor.**
+  That's normal — `.sh` files aren't double-click launchers.
+  - On **Windows**, use `start.bat` instead.
+  - On **Mac**, use `Start Maps Lead Center.command` instead. The first time,
+    if macOS blocks it, **right-click it → Open → Open**.
+  - Anywhere, you can always run it from a terminal with `bash start.sh`.
+- **Mac says "permission denied".** In a terminal, run once:
+  `chmod +x "Start Maps Lead Center.command" start.sh`, then double-click again.
+- **"Python is not installed".** Install Python 3 from
+  [python.org/downloads](https://www.python.org/downloads/) (on Windows,
+  tick *Add python.exe to PATH* during setup), then start again.
+- **First run looks stuck.** It isn't — it's downloading the browser engine
+  (~150 MB). Give it a few minutes; the browser opens when it's done.
 
 ## 🌐 Website Prospects mode
 
