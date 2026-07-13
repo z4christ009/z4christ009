@@ -1,12 +1,41 @@
-# Google Maps Lead Scraper
+# Maps Lead Center — Google Maps Lead Scraper
 
-A command-line tool that searches Google Maps, scrolls through the results,
-and extracts business details into CSV and/or JSON. **No API key needed** —
-it drives a real (automated) Chromium browser.
+Find businesses that need a website. Searches Google Maps, extracts business
+details, classifies each place's web presence, and flags the ones **without a
+real website** — your leads. **No API key needed** — it drives a real
+(automated) Chromium browser.
 
-Built for lead generation: every place's web presence is classified, so you
-can instantly filter for businesses that have **no real website** (nothing at
-all, an Instagram/Facebook page, a hosted menu page, etc.) — your prospects.
+Comes with a **web control center** so you never have to touch the command
+line: start scrapes, watch live progress, filter and search results, and
+download CSV/JSON — all from your browser.
+
+## Quick start — one click
+
+| Your system | Do this |
+|---|---|
+| **Windows** | Double-click `start.bat` |
+| **Mac / Linux** | Run `./start.sh` |
+
+That's it. On first run it installs everything it needs (takes a minute or
+two), then opens the control center at **http://localhost:8765**. Next runs
+start instantly. Keep the window it opens running; close it (or press
+Ctrl+C) to stop.
+
+## The control center
+
+- **New Scrape panel** — type a query like `restaurants in Batroun`, set how
+  many places, tick *Leads only* and/or *Extract emails*, hit **Start**.
+- **Live progress** — a progress bar, live counts, and an activity log while
+  the scrape runs. Rows appear in the table as they're scraped.
+- **Stat cards** — places scraped, leads, social-media-only, already-have-a-site.
+- **Filters & search** — one click to see only leads, only places with no web
+  presence at all, only social-media-only, etc. Search by name/address/category.
+  Click column headers to sort.
+- **One-click outreach** — every row has a WhatsApp button (wa.me link built
+  from the phone number), plus Maps and website links.
+- **Downloads** — CSV (for Excel/Sheets) and JSON per run.
+- **Run history** — past runs are saved on disk and survive restarts. Stop a
+  running job any time; everything scraped so far is kept.
 
 ## Extracted fields
 
@@ -15,60 +44,44 @@ all, an Instagram/Facebook page, a hosted menu page, etc.) — your prospects.
 | `name` | Casa Mantovani |
 | `category` | Coffee shop |
 | `status` | Operational / Temporarily closed / Permanently closed |
-| `rating` | 4.9 |
-| `reviews_count` | 144 |
+| `rating`, `reviews_count` | 4.9, 144 |
 | `price_level` | $$ |
 | `address` | Old Souk Street, Jounieh, Lebanon |
 | `phone` | +961 79 351 884 |
-| `whatsapp_link` | https://wa.me/96179351884 (one-click outreach) |
+| `whatsapp_link` | https://wa.me/96179351884 |
 | `website` | whatever Google lists, if anything |
 | `website_type` | `none`, `instagram`, `facebook`, `whatsapp`, `linktree`, `tiktok`, `social`, `hosted-page`, `shortlink`, or `website` |
 | `is_lead` | `yes` if they have no real website of their own |
-| `emails` | scraped from their site with `--emails` |
+| `emails` | scraped from their site with the emails option |
 | `plus_code`, `latitude`, `longitude` | location data |
 | `opening_hours` | Monday: 7 AM–11 PM; ... |
+| `image_url` | photo of the place |
 | `google_maps_url` | link back to the place |
 
 `hosted-page` means the "website" is a free builder or menu-hosting platform
-(business.site, wixsite.com, omegasoftware menus, Zomato/TripAdvisor profiles,
-etc.) — those businesses still count as leads.
+(business.site, wixsite.com, hosted menus, Zomato/TripAdvisor profiles, etc.)
+— those businesses still count as leads.
 
-## Setup
+## Command line (optional)
+
+The scraper also works standalone, without the control center:
+
+```bash
+python scraper.py "restaurants in Beirut"                       # basic
+python scraper.py "barber shops in Jbeil" -n 40 --leads-only    # leads only
+python scraper.py "hotels in Batroun" -n 30 --emails            # + emails
+```
+
+Options: `-n/--max-results`, `-o/--output`, `--format csv|json|both`,
+`--leads-only`, `--emails`, `--headful`, `--lang`, `--delay`, `--retries`.
+
+## Manual setup (if you don't use the start scripts)
 
 ```bash
 pip install -r requirements.txt
 playwright install chromium
+python app.py        # control center at http://localhost:8765
 ```
-
-## Usage
-
-```bash
-# Basic: scrape up to 20 places, write results.csv + results.json
-python scraper.py "restaurants in Beirut"
-
-# Lead hunting: only keep places WITHOUT a real website
-python scraper.py "barber shops in Jbeil" -n 40 --leads-only -o jbeil_barbers
-
-# Also visit each business site and pull email addresses (slower)
-python scraper.py "hotels in Batroun" -n 30 --emails
-
-# Watch the browser while it works
-python scraper.py "gyms near Jounieh" --headful
-```
-
-### Options
-
-| Flag | Default | Description |
-|---|---|---|
-| `-n`, `--max-results` | 20 | Maximum number of places to scrape |
-| `-o`, `--output` | `results` | Output basename (no extension) |
-| `--format` | `both` | `csv`, `json`, or `both` |
-| `--leads-only` | off | Keep only places without a real website |
-| `--emails` | off | Visit business websites to extract emails |
-| `--headful` | off | Show the browser window |
-| `--lang` | `en` | Google Maps UI language |
-| `--delay` | 1.0 | Seconds between place visits |
-| `--retries` | 2 | Attempts per place before skipping |
 
 ## How it works
 
@@ -78,22 +91,11 @@ python scraper.py "gyms near Jounieh" --headful
    by Google's internal place ID) or hits the "end of the list" marker.
 3. Visits each place page and reads the details panel; failed pages are
    retried before being skipped.
-4. **Writes each row to the CSV immediately** — if the run is interrupted,
-   everything scraped so far is already saved.
-5. Classifies the web presence and flags leads; with `--emails` it also
+4. **Saves every row immediately** — an interrupted run keeps everything
+   scraped so far.
+5. Classifies the web presence and flags leads; with emails enabled it also
    visits real websites (homepage + contact page) and extracts addresses,
    filtering out placeholder junk like `name@email.com`.
-6. Prints a summary: how many places, how many leads, how many social-only.
-
-## Example output
-
-```
-[scraper]   [1/25] Locanda A La Granda  [LEAD]
-[scraper]   [2/25] Feniqia  [hosted-page]
-[scraper]   [9/25] Ksar Lebanese Diner  [LEAD]
-...
-[scraper] Summary: 25 place(s) scraped — 19 lead(s) without a real website (7 of them social-media-only).
-```
 
 ## Caveats
 
@@ -105,4 +107,4 @@ python scraper.py "gyms near Jounieh" --headful
 - Google changes its markup regularly. If a field starts coming back empty,
   the selectors at the top of `scraper.py` may need updating.
 - Heavy use from one IP can trigger CAPTCHAs or temporary blocks. If that
-  happens, wait a while, lower `-n`, and raise `--delay`.
+  happens, wait a while, lower the max places, and raise the delay.
