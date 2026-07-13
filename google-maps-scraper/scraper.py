@@ -79,12 +79,80 @@ SHORTLINK_DOMAINS = ("bit.ly", "goo.gl", "tinyurl.com", "t.co", "cutt.ly")
 WEBSITE_PROSPECT_TYPES = [
     "restaurants", "cafes", "catering services", "pastry shops",
     "hotels", "guesthouses", "event venues", "wedding venues",
+    "قاعة زفاف", "قاعة أفراح",  # Arabic searches find more halls in Lebanon
     "beauty salons", "barber shops", "spas", "gyms",
     "dental clinics", "medical clinics", "physiotherapy clinics",
     "photographers", "interior designers", "architects",
     "real estate agencies", "travel agencies", "car rental agencies",
     "law firms", "accounting firms", "private schools", "nurseries",
 ]
+
+# Google Maps in Lebanon often returns category labels in Arabic.
+# Map the common ones to English so the dashboard stays readable.
+CATEGORY_AR_TO_EN = {
+    "قاعة زفاف": "Wedding hall",
+    "قاعة أفراح": "Wedding hall",
+    "قاعة احتفالات": "Event hall",
+    "قاعة مناسبات": "Event hall",
+    "مطعم": "Restaurant",
+    "مطاعم": "Restaurant",
+    "مقهى": "Cafe",
+    "كافيه": "Cafe",
+    "قهوة": "Coffee shop",
+    "مخبز": "Bakery",
+    "حلويات": "Pastry shop",
+    "محل حلويات": "Pastry shop",
+    "فندق": "Hotel",
+    "نزل": "Guesthouse",
+    "صالون تجميل": "Beauty salon",
+    "صالون حلاقة": "Barber shop",
+    "حلاق": "Barber shop",
+    "مركز تجميل": "Beauty salon",
+    "سبا": "Spa",
+    "نادي رياضي": "Gym",
+    "صالة رياضية": "Gym",
+    "عيادة أسنان": "Dental clinic",
+    "عيادة طبية": "Medical clinic",
+    "عيادة": "Clinic",
+    "صيدلية": "Pharmacy",
+    "مصور": "Photographer",
+    "استوديو تصوير": "Photo studio",
+    "مصمم ديكور": "Interior designer",
+    "مهندس معماري": "Architect",
+    "مكتب عقاري": "Real estate agency",
+    "وكالة عقارية": "Real estate agency",
+    "وكالة سفر": "Travel agency",
+    "تأجير سيارات": "Car rental agency",
+    "مكتب محاماة": "Law firm",
+    "محامي": "Lawyer",
+    "مكتب محاسبة": "Accounting firm",
+    "مدرسة خاصة": "Private school",
+    "حضانة": "Nursery",
+    "روضة أطفال": "Nursery",
+    "محل ورد": "Florist",
+    "زهور": "Florist",
+    "كوافير": "Hair salon",
+    "صالون نسائي": "Beauty salon",
+    "ميني ماركت": "Mini market",
+    "سوبرماركت": "Supermarket",
+    "محل ملابس": "Clothing store",
+    "بوتيك": "Boutique",
+}
+
+
+def translate_category(category: str) -> str:
+    """Translate Arabic Google Maps category labels to English."""
+    if not category:
+        return category
+    text = category.strip()
+    if text in CATEGORY_AR_TO_EN:
+        return CATEGORY_AR_TO_EN[text]
+    # Partial / multi-word matches (e.g. "مطعم لبناني")
+    for ar, en in CATEGORY_AR_TO_EN.items():
+        if ar in text:
+            rest = text.replace(ar, "").strip(" -–—/")
+            return f"{en} ({rest})" if rest else en
+    return text
 
 # Speed profiles. "block_heavy" aborts image/media/font requests (the map
 # tiles and photos Google loads are useless to us — the photo URL is read
@@ -404,7 +472,8 @@ class Scraper:
         p.latitude, p.longitude = parse_coords_from_url(page.url)
 
         p.name = text_or_empty(page, 'div[role="main"] h1')
-        p.category = text_or_empty(page, 'button[jsaction*="category"]')
+        p.category = translate_category(
+            text_or_empty(page, 'button[jsaction*="category"]'))
 
         for status_pat in ("Permanently closed", "Temporarily closed"):
             if page.locator(
