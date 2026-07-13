@@ -103,8 +103,50 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
 
     <div class="card">
       <h3>New Scrape</h3>
-      <label for="f-query">Search query</label>
-      <input type="text" id="f-query" placeholder='e.g. restaurants in Batroun'>
+      <label for="f-what">Business type</label>
+      <input type="text" id="f-what" placeholder='e.g. restaurants, barber shops…' list="whatlist">
+      <datalist id="whatlist">
+        <option>restaurants</option><option>cafes</option><option>bakeries</option>
+        <option>barber shops</option><option>beauty salons</option><option>gyms</option>
+        <option>pharmacies</option><option>dentists</option><option>clinics</option>
+        <option>hotels</option><option>guesthouses</option><option>car rentals</option>
+        <option>mechanics</option><option>car wash</option><option>florists</option>
+        <option>butchers</option><option>mini markets</option><option>boutiques</option>
+        <option>furniture stores</option><option>electronics stores</option>
+        <option>phone repair shops</option><option>photographers</option>
+        <option>event venues</option><option>catering services</option>
+        <option>nurseries</option><option>pet shops</option><option>lawyers</option>
+        <option>accountants</option><option>real estate agencies</option>
+        <option>travel agencies</option><option>driving schools</option>
+      </datalist>
+      <label for="f-where">Area (anywhere in Lebanon — type or pick)</label>
+      <input type="text" id="f-where" placeholder='e.g. Batroun, Achrafieh, Zahle…' list="wherelist">
+      <datalist id="wherelist">
+        <option>Beirut</option><option>Achrafieh</option><option>Hamra</option>
+        <option>Verdun</option><option>Mar Mikhael</option><option>Gemmayze</option>
+        <option>Badaro</option><option>Ras Beirut</option><option>Ain El Remmaneh</option>
+        <option>Bourj Hammoud</option><option>Sin El Fil</option><option>Dekwaneh</option>
+        <option>Furn El Chebbak</option><option>Hazmieh</option><option>Baabda</option>
+        <option>Jdeideh</option><option>Zalka</option><option>Jal El Dib</option>
+        <option>Antelias</option><option>Dbayeh</option><option>Dora</option>
+        <option>Mansourieh</option><option>Fanar</option><option>Beit Mery</option>
+        <option>Broummana</option><option>Aley</option><option>Choueifat</option>
+        <option>Khalde</option><option>Aramoun</option><option>Damour</option>
+        <option>Jounieh</option><option>Kaslik</option><option>Zouk Mosbeh</option>
+        <option>Zouk Mikael</option><option>Adma</option><option>Ghazir</option>
+        <option>Tabarja</option><option>Safra</option><option>Okaibe</option>
+        <option>Ajaltoun</option><option>Ballouneh</option><option>Faraya</option>
+        <option>Jeita</option><option>Byblos (Jbeil)</option><option>Amchit</option>
+        <option>Batroun</option><option>Chekka</option><option>Anfeh</option>
+        <option>Enfeh</option><option>Koura</option><option>Amioun</option>
+        <option>Zgharta</option><option>Ehden</option><option>Bcharre</option>
+        <option>Tripoli</option><option>Mina Tripoli</option><option>Halba</option>
+        <option>Akkar</option><option>Zahle</option><option>Chtaura</option>
+        <option>Bar Elias</option><option>Baalbek</option><option>Hermel</option>
+        <option>Rachaya</option><option>Sidon (Saida)</option><option>Tyre (Sour)</option>
+        <option>Nabatieh</option><option>Jezzine</option><option>Marjeyoun</option>
+        <option>Bint Jbeil</option><option>Hasbaya</option>
+      </datalist>
       <label for="f-max">Max places</label>
       <input type="number" id="f-max" value="25" min="1" max="200">
       <label for="f-speed">Speed</label>
@@ -127,7 +169,7 @@ tbody tr:hover{background:rgba(255,255,255,.025)}
   <main class="main" id="main">
     <div class="empty" id="empty">
       <h2>Welcome 👋</h2>
-      <p>Type a search like <b>"restaurants in Batroun"</b> on the left and hit <b>Start scraping</b>.<br>
+      <p>Pick a <b>business type</b> and an <b>area</b> on the left (type anything or choose from the list), then hit <b>Start scraping</b>.<br>
       Results appear here live — leads (businesses without a real website) are highlighted.</p>
     </div>
 
@@ -212,9 +254,18 @@ async function refreshJobs(){
 }
 
 /* ---------- start job ---------- */
+function buildQuery(){
+  const what = $('f-what').value.trim();
+  const where = $('f-where').value.trim().replace(/\s*\(.*\)\s*$/,'');
+  if(!what) return '';
+  if(!where) return what;
+  // Avoid "… Lebanon, Lebanon" when the user already typed the country.
+  const suffix = /lebanon/i.test(where) ? '' : ', Lebanon';
+  return `${what} in ${where}${suffix}`;
+}
 $('f-start').onclick = async () => {
-  const query = $('f-query').value.trim();
-  if(!query){ $('f-query').focus(); return; }
+  const query = buildQuery();
+  if(!query){ $('f-what').focus(); return; }
   $('f-start').disabled = true;
   const j = await api('/api/jobs', {method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -222,11 +273,11 @@ $('f-start').onclick = async () => {
       speed:$('f-speed').value,
       leads_only:$('f-leads').checked, emails:$('f-emails').checked})});
   $('f-start').disabled = false;
-  $('f-query').value = '';
   await refreshJobs();
   selectJob(j.id);
 };
-$('f-query').addEventListener('keydown', e=>{ if(e.key==='Enter') $('f-start').click(); });
+for(const id of ['f-what','f-where'])
+  $(id).addEventListener('keydown', e=>{ if(e.key==='Enter') $('f-start').click(); });
 
 /* ---------- job detail ---------- */
 function selectJob(id){
