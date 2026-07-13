@@ -137,6 +137,17 @@ CATEGORY_AR_TO_EN = {
     "سوبرماركت": "Supermarket",
     "محل ملابس": "Clothing store",
     "بوتيك": "Boutique",
+    # Common adjectives / leftovers after a category match
+    "لبناني": "Lebanese",
+    "لبنانية": "Lebanese",
+    "شرقي": "Oriental",
+    "إيطالي": "Italian",
+    "إيطالية": "Italian",
+    "فرنسي": "French",
+    "ياباني": "Japanese",
+    "صيني": "Chinese",
+    "هندي": "Indian",
+    "تركي": "Turkish",
 }
 
 
@@ -147,10 +158,12 @@ def translate_category(category: str) -> str:
     text = category.strip()
     if text in CATEGORY_AR_TO_EN:
         return CATEGORY_AR_TO_EN[text]
-    # Partial / multi-word matches (e.g. "مطعم لبناني")
-    for ar, en in CATEGORY_AR_TO_EN.items():
+    # Longer keys first so "قاعة زفاف" beats a shorter accidental match.
+    for ar, en in sorted(CATEGORY_AR_TO_EN.items(), key=lambda x: -len(x[0])):
         if ar in text:
             rest = text.replace(ar, "").strip(" -–—/")
+            if rest in CATEGORY_AR_TO_EN:
+                rest = CATEGORY_AR_TO_EN[rest]
             return f"{en} ({rest})" if rest else en
     return text
 
