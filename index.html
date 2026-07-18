@@ -661,7 +661,7 @@ const MENU = [
   ]},
   {cat:"Drinks", items:[
     {name:"Juice", ll:20000, desc:"Ask what's fresh today."},
-    {name:"Water", ll:60000, desc:"Cold bottled water."},
+    {name:"Water", sizes:[{l:"Small",ll:30000},{l:"Big",ll:60000}], desc:"Cold bottled water."},
     {name:"Soft Drink", ll:70000, desc:"Pepsi, 7UP, Mirinda and friends."}
   ]}
 ];
@@ -671,7 +671,8 @@ const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const fmtUSD = n => "$" + (Number.isInteger(n) ? n : n.toFixed(2).replace(/0$/,""));
 const fmtLL = n => n.toLocaleString("en-US") + " LL";
-const priceLabel = it => it.ll ? fmtLL(it.ll) : it.sizes ? "from " + fmtUSD(it.sizes[0].p) : fmtUSD(it.price);
+const fmtSize = s => s.ll ? fmtLL(s.ll) : fmtUSD(s.p);
+const priceLabel = it => it.ll ? fmtLL(it.ll) : it.sizes ? "from " + fmtSize(it.sizes[0]) : fmtUSD(it.price);
 
 /* ================= config → page ================= */
 $$("[data-cfg]").forEach(el => el.textContent = CONFIG[el.dataset.cfg]);
@@ -738,7 +739,7 @@ function renderMenu(){
       <div class="mi-bottom">
         ${it.sizes
           ? `<span class="cat-tag">Tap a size to add</span><div class="size-row">${it.sizes.map(s =>
-              `<button class="size-btn" data-add="${c.cat}|${it.name}|${s.l}">${s.l} · ${fmtUSD(s.p)}</button>`).join("")}</div>`
+              `<button class="size-btn" data-add="${c.cat}|${it.name}|${s.l}">${s.l} · ${fmtSize(s)}</button>`).join("")}</div>`
           : `<button class="add-btn" data-add="${c.cat}|${it.name}|">Add +</button>`}
       </div>
     </article>`).join(""))).join("");
@@ -757,7 +758,7 @@ function findItem(cat, name){ return MENU.find(c=>c.cat===cat).items.find(i=>i.n
 function addToCart(cat, name, sizeLabel, quiet){
   const it = findItem(cat, name);
   let variant = "", usd = 0, ll = 0;
-  if(it.sizes){ const s = it.sizes.find(x=>x.l===sizeLabel); variant = s.l; usd = s.p; }
+  if(it.sizes){ const s = it.sizes.find(x=>x.l===sizeLabel); variant = s.l; if(s.ll){ ll = s.ll; } else { usd = s.p; } }
   else if(it.ll){ ll = it.ll; }
   else { usd = it.price; }
   const key = name + "|" + variant;
