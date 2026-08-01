@@ -72,6 +72,44 @@ impl Image {
             })
             .collect()
     }
+
+    /// Adopt a browser `ImageData` buffer, dropping alpha.
+    pub fn from_rgba(rgba: &[u8], w: usize, h: usize) -> Self {
+        let mut px = Vec::with_capacity(w * h * 3);
+        for p in rgba.chunks_exact(4).take(w * h) {
+            px.extend_from_slice(&p[..3]);
+        }
+        px.resize(w * h * 3, 0);
+        Self { w, h, px }
+    }
+
+    /// Box-average by an integer factor.
+    pub fn downscale(&self, factor: usize) -> Image {
+        if factor <= 1 {
+            return self.clone();
+        }
+        let (w, h) = (self.w / factor, self.h / factor);
+        let mut px = vec![0u8; w * h * 3];
+        let n = (factor * factor) as u32;
+        for y in 0..h {
+            for x in 0..w {
+                let mut acc = [0u32; 3];
+                for dy in 0..factor {
+                    for dx in 0..factor {
+                        let s = ((y * factor + dy) * self.w + (x * factor + dx)) * 3;
+                        for c in 0..3 {
+                            acc[c] += self.px[s + c] as u32;
+                        }
+                    }
+                }
+                let d = (y * w + x) * 3;
+                for c in 0..3 {
+                    px[d + c] = (acc[c] / n) as u8;
+                }
+            }
+        }
+        Image { w, h, px }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -458,6 +496,74 @@ pub fn locate(img: &Image, grid: usize) -> Option<Homography> {
 
     let dst: [(f64, f64); 4] = [picked[0], picked[1], picked[2], picked[3]];
     Homography::from_correspondences(&marker_centers(grid), &dst)
+}
+
+/// Downscale factor that keeps marker localisation affordable on a phone.
+///
+/// Connected-component analysis over a full 1080p frame is far too slow for a
+/// real-time loop, and finders survive downsampling comfortably. Cell *sampling*
+/// still runs at full resolution -- only detection is cheapened.
+pub fn detect_factor(w: usize, h: usize) -> usize {
+    (w.min(h) / 480).max(1)
+}
+
+/// Localise on a downscaled copy, then lift the homography back to full scale.
+pub fn locate_downscaled(img: &Image, grid: usize, factor: usize) -> Option<Homography> {
+    if factor <= 1 {
+        return locate(img, grid);
+    }
+    let small = img.downscale(factor);
+    let h = locate(&small, grid)?;
+
+    // Box downsampling maps small-pixel centres to full-pixel centres exactly by
+    // `factor`, so lifting is just scaling the output rows of the homography.
+    let f = factor as f64;
+    let mut m = h.0;
+    for v in m.iter_mut().take(6) {
+        *v *= f;
+    }
+    Some(Homography(m))
+}
+
+/// Render one frame at exactly one pixel per cell, as RGBA.
+///
+/// The browser scales this up on the canvas with smoothing disabled, which is
+/// both faster and sharper than rasterising full-size cells here.
+pub fn render_rgba(cfg: &LinkConfig, symbols: &[u8], out: &mut [u8]) {
+    let grid = cfg.grid;
+    debug_assert!(out.len() >= grid * grid * 4);
+
+    let mut payload_idx = 0usize;
+    let mut calib_idx = 0usize;
+
+    for r in 0..grid {
+        for c in 0..grid {
+            let rgb = match cell_kind(r, c, grid) {
+                CellKind::Marker => {
+                    let lr = if r < MARKER { r } else { r - (grid - MARKER) };
+                    let lc = if c < MARKER { c } else { c - (grid - MARKER) };
+                    if marker_is_dark(lr, lc) {
+                        [0, 0, 0]
+                    } else {
+                        [255, 255, 255]
+                    }
+                }
+                CellKind::Calibration => {
+                    let s = palette::calibration_symbol(calib_idx);
+                    calib_idx += 1;
+                    palette::symbol_to_rgb(s)
+                }
+                CellKind::Payload => {
+                    let s = symbols.get(payload_idx).copied().unwrap_or(0);
+                    payload_idx += 1;
+                    palette::symbol_to_rgb(s)
+                }
+            };
+            let i = (r * grid + c) * 4;
+            out[i..i + 3].copy_from_slice(&rgb);
+            out[i + 3] = 255;
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

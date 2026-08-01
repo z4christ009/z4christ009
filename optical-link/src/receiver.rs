@@ -103,8 +103,16 @@ impl Receiver {
 
     /// Full camera path: localise the grid, sample it, then decode.
     pub fn push_image(&mut self, img: &Image) -> Option<Vec<u8>> {
+        self.push_image_with_factor(img, 1)
+    }
+
+    /// As [`Receiver::push_image`], but localise markers on a `factor`-downscaled
+    /// copy. Cell sampling still runs at full resolution -- only detection is
+    /// cheapened, which is what makes the loop affordable on a phone.
+    /// `factor` of 0 or 1 means full resolution.
+    pub fn push_image_with_factor(&mut self, img: &Image, factor: usize) -> Option<Vec<u8>> {
         self.stats.frames_seen += 1;
-        let h = match geometry::locate(img, self.cfg.grid) {
+        let h = match geometry::locate_downscaled(img, self.cfg.grid, factor.max(1)) {
             Some(h) => h,
             None => return None, // no lock; fountain absorbs it
         };

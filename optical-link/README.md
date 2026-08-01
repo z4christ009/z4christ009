@@ -4,8 +4,50 @@ A screen-to-camera data link. One device displays a colour grid at 60 fps, anoth
 films it, and a file crosses the gap with no Wi-Fi, no Bluetooth and no network of
 any kind.
 
-This is **Phase 1**: the codec core plus a synthetic camera, so the whole stack can
-be measured and tuned without any hardware in the loop.
+The codec core is Rust; the phone app is that same core compiled to WebAssembly
+behind a small web page. No App Store, no Xcode — open a URL on both phones.
+
+## Run it on two phones
+
+```
+python3 web/serve.py
+```
+
+It prints a `https://<your-lan-ip>:8443/` URL. Open it on **both** phones, accept
+the certificate warning, then **Send** on one and **Receive** on the other.
+
+Three things about that, all load-bearing:
+
+- **HTTPS is not optional.** `getUserMedia` only works in a secure context, and a
+  plain `http://` LAN address never qualifies — the camera is refused on iOS and
+  Android regardless of what permissions you grant. `serve.py` generates a
+  self-signed cert for exactly this reason. The browser warning is that cert;
+  accept it and continue.
+- **Both phones need to be propped.** At ~6 px/cell, handheld does not hold focus.
+- **Sender screen to maximum brightness.**
+
+`web/optical_link.wasm` is committed so the app runs with only Python installed.
+After changing anything under `src/`, re-stage it with `./build-web.sh`.
+
+### What the app does
+
+Send mode takes any file — the picker accepts video, so you can pull a clip
+straight from the camera roll — and loops it out as colour frames forever, since
+there is no back-channel telling it when to stop. Receive mode runs the camera,
+shows a live HUD (capture/decode FPS, lock rate, frame yield, goodput, symbol
+progress), and on completion offers the file for download and plays it inline if
+it is video or an image. Both ends expose the preset selector; the receiver also
+picks capture resolution, because that is the constraint that actually binds at
+60 fps.
+
+Everything heavy — cell rendering, marker localisation, sampling, Reed-Solomon,
+RaptorQ — runs in wasm. Decoding a 160×160 grid in JavaScript would cap the link
+an order of magnitude below what the codec can carry.
+
+---
+
+Below is **Phase 1**: the codec core plus a synthetic camera, so the stack can be
+measured and tuned without any hardware in the loop.
 
 ## Why not just animate QR codes
 
@@ -93,9 +135,18 @@ turns them into measurements.
 ## Running it
 
 ```
-cargo test --release
+cargo test --release                     # 26 tests, codec + geometry + end-to-end
+node web/loopback-test.mjs               # wasm ABI, all three presets
+node web/browser-test.mjs                # real canvas path, headless Chromium
 cargo run --release --bin simulate -- --channel realistic --size 1000000
 ```
+
+The three test layers exist because they fail differently. `cargo test` covers the
+codec. The Node loopback covers the wasm boundary — pointer handling, memory-growth
+invalidation, the stats layout. The browser test covers what neither can see: the
+canvas resampling cell edges into mush. That last one is why the sender snaps its
+canvas to an integer number of device pixels per cell instead of just filling the
+viewport.
 
 Useful flags:
 
@@ -114,16 +165,26 @@ is in the coding stack, not the optics.
 ## Layout
 
 ```
-config.rs     grid geometry and rate budget — tune throughput here
-palette.rs    colour coding, bit packing, per-channel calibration
-geometry.rs   rendering, marker localisation, homography, cell sampling
-ecc.rs        interleaved Reed-Solomon
-frame.rs      header, CRC32
-fountain.rs   RaptorQ wrapper
-sender.rs     object in, cell symbols out
-receiver.rs   camera frames in, object out
-channel.rs    synthetic camera: warp, blur, noise, crosstalk, tearing, drops
+src/
+  config.rs     grid geometry and rate budget — tune throughput here
+  palette.rs    colour coding, bit packing, per-channel calibration
+  geometry.rs   rendering, marker localisation, homography, cell sampling
+  ecc.rs        interleaved Reed-Solomon
+  frame.rs      header, CRC32
+  fountain.rs   RaptorQ wrapper
+  sender.rs     object in, cell symbols out
+  receiver.rs   camera frames in, object out
+  channel.rs    synthetic camera: warp, blur, noise, crosstalk, tearing, drops
+  wasm.rs       raw C ABI for the browser build
+web/
+  index.html    two modes, minimal chrome
+  app.js        camera, canvas, wasm glue — no codec logic
+  serve.py      HTTPS static server (required for camera access)
 ```
+
+`wasm.rs` deliberately avoids wasm-bindgen. The surface is small enough that a
+plain `extern "C"` boundary over linear memory is less machinery than a codegen
+dependency, and it keeps everything crossing into JS visible in one file.
 
 ## What's next
 

@@ -24,6 +24,7 @@ pub mod geometry;
 pub mod palette;
 pub mod receiver;
 pub mod sender;
+pub mod wasm;
 
 pub use config::LinkConfig;
 pub use receiver::{Receiver, RxStats};

@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:,">
+<title>optical-link</title>
+<style>
+  :root { --bg:#0a0a0a; --fg:#e8e8e8; --dim:#888; --accent:#ffb700; --ok:#38d478; --bad:#ff5c5c;
+          --panel:#161616; --line:#2a2a2a; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px ui-monospace,SFMono-Regular,Menlo,monospace;
+         padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  header { display:flex; gap:8px; padding:10px; border-bottom:1px solid var(--line); align-items:center; }
+  header h1 { font-size:13px; margin:0 auto 0 4px; color:var(--accent); letter-spacing:.5px; font-weight:600; }
+  .tab { flex:0 0 auto; padding:8px 16px; background:var(--panel); border:1px solid var(--line);
+         border-radius:6px; color:var(--dim); cursor:pointer; font:inherit; }
+  .tab[aria-selected="true"] { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
+  main { padding:12px; max-width:760px; margin:0 auto; }
+  section[hidden] { display:none; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+  label { color:var(--dim); font-size:12px; }
+  select, button, input[type=file] { font:inherit; background:var(--panel); color:var(--fg);
+         border:1px solid var(--line); border-radius:6px; padding:9px 12px; }
+  button { cursor:pointer; }
+  button.go { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:8px; margin:10px 0; }
+  .stat { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:8px 10px; }
+  .stat .k { color:var(--dim); font-size:10px; text-transform:uppercase; letter-spacing:.6px; }
+  .stat .v { font-size:17px; margin-top:3px; }
+  .v.ok { color:var(--ok); } .v.bad { color:var(--bad); } .v.hi { color:var(--accent); }
+  canvas { display:block; margin:0 auto; image-rendering:pixelated; background:#fff; }
+  #txStage { background:#000; }
+  #txStage:fullscreen { display:flex; align-items:center; justify-content:center; height:100%; }
+  video { width:100%; max-width:320px; border-radius:6px; background:#000; display:block; }
+  .bar { height:6px; background:var(--panel); border-radius:3px; overflow:hidden; border:1px solid var(--line); }
+  .bar > i { display:block; height:100%; width:0; background:var(--accent); transition:width .2s; }
+  .note { color:var(--dim); font-size:12px; line-height:1.5; margin:10px 0; }
+  .note b { color:var(--fg); font-weight:600; }
+  .err { color:var(--bad); background:#2a1010; border:1px solid #4a1a1a; border-radius:6px;
+         padding:10px; margin:10px 0; white-space:pre-wrap; }
+  .err[hidden] { display:none; }
+  #result { border-top:1px solid var(--line); margin-top:14px; padding-top:14px; }
+  #result[hidden] { display:none; }
+  #result video, #result img { width:100%; max-width:420px; border-radius:6px; margin:8px 0; }
+  a.dl { display:inline-block; background:var(--ok); color:#000; text-decoration:none; font-weight:600;
+         padding:10px 16px; border-radius:6px; margin-top:6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>OPTICAL-LINK</h1>
+  <button class="tab" id="tabSend" aria-selected="true">Send</button>
+  <button class="tab" id="tabRecv" aria-selected="false">Receive</button>
+</header>
+
+<main>
+<div class="err" id="err" hidden></div>
+
+<!-- ─────────────────────────── SEND ─────────────────────────── -->
+<section id="send">
+  <div class="row">
+    <input type="file" id="file" accept="video/*,image/*,*/*">
+  </div>
+  <div class="row">
+    <label for="txPreset">Preset</label>
+    <select id="txPreset">
+      <option value="0">robust · 128 cells</option>
+      <option value="1" selected>balanced · 160 cells</option>
+      <option value="2">fast · 192 cells</option>
+    </select>
+    <button class="go" id="txStart" disabled>Start</button>
+    <button id="txStop" disabled>Stop</button>
+    <button id="txFull" disabled>Fullscreen</button>
+  </div>
+
+  <div class="grid">
+    <div class="stat"><div class="k">Payload</div><div class="v" id="txSize">—</div></div>
+    <div class="stat"><div class="k">Frames sent</div><div class="v hi" id="txFrames">0</div></div>
+    <div class="stat"><div class="k">Display FPS</div><div class="v" id="txFps">—</div></div>
+    <div class="stat"><div class="k">One full pass</div><div class="v" id="txPass">—</div></div>
+  </div>
+
+  <div id="txStage"><canvas id="txCanvas" width="16" height="16"></canvas></div>
+
+  <p class="note">
+    Screen to <b>maximum brightness</b>, and prop both phones — handheld will not hold focus at
+    these cell sizes. There is no back-channel, so the sender never learns what the camera
+    missed: it just loops forever until you stop it. Leaving it running past one full pass is
+    normal and is how dropped frames get made up.
+  </p>
+</section>
+
+<!-- ────────────────────────── RECEIVE ───────────────────────── -->
+<section id="recv" hidden>
+  <div class="row">
+    <label for="rxPreset">Preset</label>
+    <select id="rxPreset">
+      <option value="0">robust · 128 cells</option>
+      <option value="1" selected>balanced · 160 cells</option>
+      <option value="2">fast · 192 cells</option>
+    </select>
+    <label for="rxRes">Capture</label>
+    <select id="rxRes">
+      <option value="1280">720p</option>
+      <option value="1920" selected>1080p</option>
+      <option value="2560">1440p</option>
+      <option value="3840">4K</option>
+    </select>
+    <button id="rxFlip">Flip cam</button>
+  </div>
+  <div class="row">
+    <button class="go" id="rxStart">Start camera</button>
+    <button id="rxStop" disabled>Stop</button>
+  </div>
+
+  <div class="grid">
+    <div class="stat"><div class="k">Capture FPS</div><div class="v" id="rxCap">—</div></div>
+    <div class="stat"><div class="k">Decode FPS</div><div class="v hi" id="rxDec">—</div></div>
+    <div class="stat"><div class="k">Lock</div><div class="v" id="rxLock">—</div></div>
+    <div class="stat"><div class="k">Yield</div><div class="v" id="rxYield">—</div></div>
+    <div class="stat"><div class="k">Goodput</div><div class="v" id="rxRate">—</div></div>
+    <div class="stat"><div class="k">Symbols</div><div class="v" id="rxSyms">—</div></div>
+    <div class="stat"><div class="k">Rejected</div><div class="v" id="rxRej">0</div></div>
+    <div class="stat"><div class="k">RS fixed</div><div class="v" id="rxEcc">0</div></div>
+  </div>
+
+  <div class="bar"><i id="rxBar"></i></div>
+  <p class="note" id="rxMsg">Point the camera at the sending screen. Fill the frame with the grid.</p>
+
+  <video id="rxVideo" playsinline muted autoplay></video>
+
+  <div id="result" hidden>
+    <div class="stat"><div class="k">Received</div><div class="v ok" id="rxDone">—</div></div>
+    <div id="preview"></div>
+    <a class="dl" id="rxDownload" download>Download</a>
+  </div>
+</section>
+</main>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
