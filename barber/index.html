@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0E1420">
+<title>A7AA Barber Shop — Fades &amp; Beard Trims in Karm El Mehr</title>
+<meta name="description" content="A7AA Barber Shop in Karm El Mehr — skin fades, taper fades, beard trims and line-ups. Book your chair on WhatsApp.">
+<meta property="og:title" content="A7AA Barber Shop — Karm El Mehr">
+<meta property="og:description" content="Skin fades, taper fades, beard trims and line-ups. Book your chair on WhatsApp.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="img/hero.jpg">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E1420'/%3E%3Ctext x='32' y='44' font-family='Arial Black,Arial,sans-serif' font-size='30' font-weight='900' fill='%23C99B5F' text-anchor='middle'%3EA7%3C/text%3E%3C/svg%3E">
+<link rel="preload" href="fonts/anton-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/barlow-400.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+/* ---------------------------------------------------------------
+   A7AA Barber Shop — single file site
+   Colours taken from the shop flyer: deep navy + brushed gold.
+   Fonts are self-hosted so the site never waits on a third party.
+   --------------------------------------------------------------- */
+@font-face{font-family:'Anton';font-style:normal;font-weight:400;font-display:swap;
+  src:url('fonts/anton-400.woff2') format('woff2')}
+@font-face{font-family:'Barlow';font-style:normal;font-weight:400;font-display:swap;
+  src:url('fonts/barlow-400.woff2') format('woff2')}
+@font-face{font-family:'Barlow';font-style:normal;font-weight:600;font-display:swap;
+  src:url('fonts/barlow-600.woff2') format('woff2')}
+@font-face{font-family:'Barlow';font-style:normal;font-weight:700;font-display:swap;
+  src:url('fonts/barlow-700.woff2') format('woff2')}
+:root{
+  --navy:#0E1420;
+  --navy-2:#141C2C;
+  --navy-3:#1C2536;
+  --gold:#C99B5F;
+  --gold-soft:#E0BC8B;
+  --cream:#F3EEE6;
+  --muted:#9AA4B5;
+  --line:rgba(201,155,95,.22);
+  --font-display:'Anton',Impact,'Arial Narrow Bold',sans-serif;
+  --font-body:'Barlow',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  --shell:min(1180px,100% - 2.5rem);
+  --radius:14px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:78px;-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--navy);color:var(--cream);
+  font-family:var(--font-body);font-size:17px;line-height:1.65;
+  overflow-x:hidden;
+}
+img{max-width:100%;height:auto;display:block}
+a{color:inherit}
+h1,h2,h3{font-family:var(--font-display);font-weight:400;line-height:1.02;
+  letter-spacing:.01em;text-transform:uppercase;margin:0}
+h2{font-size:clamp(2.1rem,5.5vw,3.4rem)}
+p{margin:0 0 1rem}
+.shell{width:var(--shell);margin-inline:auto}
+.gold{color:var(--gold)}
+
+/* ---------- buttons ---------- */
+.btn{
+  display:inline-flex;align-items:center;gap:.55rem;justify-content:center;
+  font-weight:700;font-size:.95rem;letter-spacing:.06em;text-transform:uppercase;
+  padding:.95rem 1.6rem;border-radius:999px;text-decoration:none;border:1.5px solid transparent;
+  cursor:pointer;transition:transform .18s ease,background .18s ease,color .18s ease,border-color .18s ease;
+  font-family:var(--font-body);
+}
+.btn:hover{transform:translateY(-2px)}
+.btn-gold{background:var(--gold);color:#14100A}
+.btn-gold:hover{background:var(--gold-soft)}
+.btn-ghost{border-color:var(--line);color:var(--cream)}
+.btn-ghost:hover{border-color:var(--gold);color:var(--gold)}
+.btn svg{width:18px;height:18px;fill:currentColor;flex:none}
+
+/* ---------- header ---------- */
+.site-head{
+  position:sticky;top:0;z-index:60;
+  background:rgba(14,20,32,.72);backdrop-filter:blur(14px);
+  border-bottom:1px solid transparent;transition:border-color .25s ease,background .25s ease;
+}
+.site-head.stuck{border-bottom-color:var(--line);background:rgba(14,20,32,.94)}
+.nav{display:flex;align-items:center;gap:1.5rem;height:72px}
+.brand{display:flex;align-items:center;gap:.6rem;text-decoration:none;margin-right:auto}
+.brand .mark{
+  width:38px;height:38px;border-radius:10px;background:var(--gold);color:#14100A;
+  display:grid;place-items:center;font-family:var(--font-display);font-size:1.05rem;
+}
+.brand b{font-family:var(--font-display);font-weight:400;font-size:1.35rem;letter-spacing:.05em}
+.brand small{display:block;font-size:.62rem;letter-spacing:.28em;color:var(--gold);text-transform:uppercase;line-height:1}
+.nav-links{display:flex;align-items:center;gap:1.7rem}
+.nav-links a{
+  text-decoration:none;font-size:.83rem;font-weight:600;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--muted);transition:color .18s ease;
+}
+.nav-links a:hover,.nav-links a.active{color:var(--gold)}
+.nav .btn{padding:.7rem 1.25rem}
+.burger{
+  display:none;width:44px;height:44px;border:1px solid var(--line);border-radius:10px;
+  background:none;cursor:pointer;padding:0;place-items:center;
+}
+.burger span{display:block;width:20px;height:2px;background:var(--cream);position:relative}
+.burger span::before,.burger span::after{
+  content:"";position:absolute;left:0;width:20px;height:2px;background:var(--cream);transition:transform .2s ease}
+.burger span::before{top:-6px}
+.burger span::after{top:6px}
+.nav.open .burger span{background:transparent}
+.nav.open .burger span::before{transform:translateY(6px) rotate(45deg)}
+.nav.open .burger span::after{transform:translateY(-6px) rotate(-45deg)}
+
+/* ---------- hero ---------- */
+.hero{position:relative;isolation:isolate;padding:clamp(2.25rem,6vw,4rem) 0 0;overflow:hidden}
+.hero::before{
+  content:"";position:absolute;inset:-20% -30% auto auto;width:min(560px,70vw);aspect-ratio:1;
+  background:radial-gradient(circle,rgba(201,155,95,.16),transparent 68%);z-index:-1;
+}
+.hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(2rem,5vw,4rem);align-items:center}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:.6rem;font-size:.72rem;font-weight:700;
+  letter-spacing:.3em;text-transform:uppercase;color:var(--gold);margin-bottom:1.1rem;
+}
+.eyebrow::before{content:"";width:34px;height:1px;background:var(--gold)}
+.hero h1{font-size:clamp(3.2rem,10vw,6.2rem);letter-spacing:.005em}
+.hero h1 span{display:block;color:var(--gold)}
+.hero-lede{color:var(--muted);font-size:1.08rem;max-width:46ch;margin:1.4rem 0 2rem}
+.hero-cta{display:flex;flex-wrap:wrap;gap:.85rem}
+.hero-stats{display:flex;gap:2.4rem;margin-top:2.8rem;flex-wrap:wrap}
+.hero-stats div strong{
+  display:block;font-family:var(--font-display);font-size:1.9rem;color:var(--gold);line-height:1}
+.hero-stats div span{font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+.hero-media{position:relative}
+.hero-media img{
+  border-radius:calc(var(--radius) + 6px);aspect-ratio:4/5;object-fit:cover;
+  border:1px solid var(--line);
+}
+.hero-badge{
+  position:absolute;left:-14px;bottom:26px;background:var(--gold);color:#14100A;
+  padding:.85rem 1.15rem;border-radius:12px;font-family:var(--font-display);
+  font-size:1.05rem;letter-spacing:.06em;box-shadow:0 18px 40px rgba(0,0,0,.45);
+}
+.hero-badge small{display:block;font-family:var(--font-body);font-weight:600;
+  font-size:.63rem;letter-spacing:.2em;opacity:.72}
+
+/* ---------- marquee strip ---------- */
+.strip{
+  margin-top:clamp(3rem,7vw,5rem);border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  background:var(--navy-2);overflow:hidden;
+}
+.strip-track{
+  display:flex;gap:2.5rem;padding:.95rem 0;white-space:nowrap;
+  font-family:var(--font-display);font-size:1.05rem;letter-spacing:.12em;color:var(--gold-soft);
+  animation:slide 26s linear infinite;width:max-content;
+}
+.strip-track span{opacity:.85}
+.strip-track i{color:var(--gold);font-style:normal}
+@keyframes slide{to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.strip-track{animation:none}}
+
+/* ---------- sections ---------- */
+section{padding:clamp(4rem,9vw,7rem) 0}
+.sec-head{max-width:60ch;margin-bottom:3rem}
+.sec-head p{color:var(--muted);margin-top:.9rem}
+.about-grid h2,.book-wrap h2{margin-bottom:1.1rem}
+
+/* ---------- services ---------- */
+.services{background:var(--navy-2);border-block:1px solid var(--line)}
+.svc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.1rem}
+.svc{
+  background:var(--navy-3);border:1px solid rgba(255,255,255,.05);border-radius:var(--radius);
+  padding:1.7rem 1.5rem;display:flex;flex-direction:column;gap:.55rem;
+  transition:border-color .2s ease,transform .2s ease;
+}
+.svc:hover{border-color:var(--gold);transform:translateY(-4px)}
+.svc .ico{width:34px;height:34px;fill:var(--gold);margin-bottom:.4rem}
+.svc h3{font-size:1.32rem}
+.svc p{color:var(--muted);font-size:.94rem;margin:0}
+.svc .price{
+  margin-top:auto;padding-top:1rem;font-family:var(--font-display);font-size:1.5rem;color:var(--gold)}
+.svc .price small{font-family:var(--font-body);font-size:.7rem;letter-spacing:.16em;
+  color:var(--muted);display:block;font-weight:600}
+.price-note{margin-top:1.6rem;font-size:.85rem;color:var(--muted)}
+
+/* ---------- gallery ---------- */
+.gal{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;align-items:start}
+.gal figure{margin:0;position:relative;border-radius:var(--radius);overflow:hidden;border:1px solid var(--line)}
+.gal img{aspect-ratio:3/4;object-fit:cover;transition:transform .5s ease}
+.gal figure:hover img{transform:scale(1.05)}
+.gal figcaption{
+  position:absolute;inset:auto 0 0 0;padding:1.6rem 1.1rem .9rem;
+  background:linear-gradient(transparent,rgba(14,20,32,.92));
+  font-size:.75rem;letter-spacing:.18em;text-transform:uppercase;font-weight:600;color:var(--gold-soft);
+}
+.gal figure.flyer img{aspect-ratio:1/1;object-fit:contain;background:var(--navy-2)}
+
+/* ---------- about ---------- */
+.about{background:var(--navy-2);border-block:1px solid var(--line)}
+.about-grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:clamp(2rem,5vw,4rem);align-items:center}
+.about-grid img{border-radius:var(--radius);aspect-ratio:4/5;object-fit:cover;border:1px solid var(--line)}
+.about-grid p{color:var(--muted)}
+.about-grid p.lead{color:var(--cream);font-size:1.12rem}
+.tick{list-style:none;padding:0;margin:1.6rem 0 0;display:grid;gap:.7rem}
+.tick li{display:flex;gap:.75rem;align-items:flex-start;font-size:.97rem}
+.tick svg{width:19px;height:19px;fill:var(--gold);flex:none;margin-top:.25rem}
+
+/* ---------- hours + location ---------- */
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem}
+.card{
+  background:var(--navy-2);border:1px solid var(--line);border-radius:var(--radius);
+  padding:clamp(1.6rem,3vw,2.2rem);
+}
+.card h3{font-size:1.5rem;margin-bottom:1.2rem}
+.hours{list-style:none;padding:0;margin:0}
+.hours li{
+  display:flex;justify-content:space-between;gap:1rem;padding:.65rem 0;
+  border-bottom:1px dashed rgba(255,255,255,.07);font-size:.97rem;
+}
+.hours li:last-child{border-bottom:0}
+.hours li span:first-child{color:var(--muted)}
+.hours li.today{color:var(--gold);font-weight:700}
+.hours li.today span:first-child{color:var(--gold)}
+.where{display:grid;gap:1.1rem}
+.where a{display:flex;gap:.8rem;align-items:flex-start;text-decoration:none;
+  color:var(--cream);transition:color .18s ease}
+.where a:hover{color:var(--gold)}
+.where svg{width:21px;height:21px;fill:var(--gold);flex:none;margin-top:.2rem}
+.where small{display:block;color:var(--muted);font-size:.82rem}
+
+/* ---------- booking ---------- */
+.book{background:
+  linear-gradient(rgba(14,20,32,.9),rgba(14,20,32,.97)),url('img/cut-01.jpg') center/cover fixed;
+  border-block:1px solid var(--line)}
+.book-wrap{display:grid;grid-template-columns:.95fr 1.05fr;gap:clamp(2rem,5vw,4rem);align-items:start}
+form{display:grid;gap:1rem}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+label{display:block;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;
+  font-weight:700;color:var(--muted);margin-bottom:.45rem}
+input,select,textarea{
+  width:100%;padding:.85rem 1rem;border-radius:10px;background:var(--navy-3);
+  border:1px solid rgba(255,255,255,.09);color:var(--cream);font:inherit;font-size:.97rem;
+}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:1px;border-color:transparent}
+input::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.55;cursor:pointer}
+input::-webkit-calendar-picker-indicator:hover{opacity:1}
+textarea{resize:vertical;min-height:88px}
+select{appearance:none;background-image:
+  linear-gradient(45deg,transparent 50%,var(--gold) 50%),linear-gradient(135deg,var(--gold) 50%,transparent 50%);
+  background-position:calc(100% - 19px) 21px,calc(100% - 13px) 21px;
+  background-size:6px 6px,6px 6px;background-repeat:no-repeat;padding-right:2.6rem}
+.form-note{font-size:.83rem;color:var(--muted);margin:0}
+.notice{
+  display:none;background:rgba(201,155,95,.12);border:1px solid var(--line);
+  border-radius:10px;padding:.85rem 1rem;font-size:.88rem;color:var(--gold-soft)}
+.notice.show{display:block}
+
+/* ---------- footer ---------- */
+footer{padding:3rem 0 2.2rem;border-top:1px solid var(--line);background:var(--navy-2)}
+.foot{display:flex;flex-wrap:wrap;gap:1.5rem;align-items:center;justify-content:space-between}
+.socials{display:flex;gap:.7rem}
+.socials a{
+  width:42px;height:42px;border:1px solid var(--line);border-radius:50%;display:grid;place-items:center;
+  transition:background .18s ease,color .18s ease,border-color .18s ease}
+.socials a:hover{background:var(--gold);border-color:var(--gold);color:#14100A}
+.socials svg{width:18px;height:18px;fill:currentColor}
+.copy{font-size:.82rem;color:var(--muted);margin-top:2rem;text-align:center}
+
+/* ---------- floating whatsapp ---------- */
+.float-wa{
+  position:fixed;right:18px;bottom:18px;z-index:70;width:56px;height:56px;border-radius:50%;
+  background:#25D366;color:#0B2015;display:grid;place-items:center;text-decoration:none;
+  box-shadow:0 14px 32px rgba(0,0,0,.45);transition:transform .18s ease;
+}
+.float-wa:hover{transform:scale(1.07)}
+.float-wa svg{width:29px;height:29px;fill:currentColor}
+
+/* ---------- reveal ---------- */
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .6s ease,transform .6s ease}
+.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
+
+/* ---------- responsive ---------- */
+@media (hover:none){
+  /* fixed backgrounds stutter badly on phones */
+  .book{background-attachment:scroll}
+}
+@media (max-width:900px){
+  .hero-grid,.about-grid,.book-wrap,.info-grid{grid-template-columns:1fr}
+  /* headline first on phones — the photo shouldn't eat the whole first screen */
+  .hero{padding-top:2.5rem}
+  .hero-media{max-width:520px}
+  .hero-media img{aspect-ratio:1/1;object-position:50% 85%}
+  .hero-stats{margin-top:2rem}
+  .about-grid img{width:100%;max-width:420px}
+  .burger{display:grid}
+  .nav-links{
+    position:absolute;top:72px;left:0;right:0;flex-direction:column;align-items:stretch;gap:0;
+    background:rgba(14,20,32,.98);border-bottom:1px solid var(--line);padding:.5rem 1.25rem 1.25rem;
+    display:none;
+  }
+  .nav.open .nav-links{display:flex}
+  .nav-links a{padding:.85rem 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:.95rem}
+  .nav > .btn{display:none}
+}
+@media (max-width:560px){
+  body{font-size:16px}
+  .row{grid-template-columns:1fr}
+  .hero-stats{gap:1.6rem}
+  .float-wa{width:52px;height:52px}
+}
+</style>
+</head>
+<body>
+
+<header class="site-head" id="head">
+  <div class="shell">
+    <nav class="nav" id="nav">
+      <a class="brand" href="#top">
+        <span class="mark">A7</span>
+        <span><b>A7AA</b><small>Barber Shop</small></span>
+      </a>
+      <div class="nav-links" id="navLinks">
+        <a href="#services">Services</a>
+        <a href="#work">Work</a>
+        <a href="#about">About</a>
+        <a href="#hours">Hours</a>
+        <a href="#book">Book</a>
+      </div>
+      <a class="btn btn-gold" data-wa href="#book">
+        <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.8 14.2c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.1-1.9-.1-.4-.1-1-.3-1.8-.6-3.1-1.3-5.1-4.4-5.3-4.7-.1-.2-1.2-1.6-1.2-3s.7-2.1 1-2.4c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .7.5l1 2.3c.1.2.1.4 0 .6l-.4.6-.3.4c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.7-.1l.9-1c.2-.3.4-.2.7-.1l2.1 1c.3.2.5.2.6.4.1.1.1.7-.1 1.4Z"/></svg>
+        Book Now
+      </a>
+      <button class="burger" id="burger" aria-label="Menu" aria-expanded="false"><span></span></button>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ============ HERO ============ -->
+  <section class="hero">
+    <div class="shell hero-grid">
+      <div>
+        <span class="eyebrow">Karm El Mehr · Menteke Quality</span>
+        <h1>Barber<span>Shop</span></h1>
+        <p class="hero-lede">
+          Clean skin fades, sharp line-ups and beard work — done slow, done right.
+          Walk in scruffy, walk out looking like the best version of yourself.
+        </p>
+        <div class="hero-cta">
+          <a class="btn btn-gold" data-wa href="#book">
+            <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.8 14.2c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.1-1.9-.1-.4-.1-1-.3-1.8-.6-3.1-1.3-5.1-4.4-5.3-4.7-.1-.2-1.2-1.6-1.2-3s.7-2.1 1-2.4c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .7.5l1 2.3c.1.2.1.4 0 .6l-.4.6-.3.4c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.7-.1l.9-1c.2-.3.4-.2.7-.1l2.1 1c.3.2.5.2.6.4.1.1.1.7-.1 1.4Z"/></svg>
+            Book on WhatsApp
+          </a>
+          <a class="btn btn-ghost" href="#services">See Services</a>
+        </div>
+        <div class="hero-stats">
+          <div><strong>7</strong><span>Days a week</span></div>
+          <div><strong>30<span style="font-size:1rem">min</span></strong><span>Average cut</span></div>
+          <div><strong>100%</strong><span>Fresh blades</span></div>
+        </div>
+      </div>
+      <div class="hero-media">
+        <img src="img/hero.jpg" width="1400" height="1050" alt="Barber shaping a fade with clippers and comb">
+        <div class="hero-badge">Ya 3alii<small>Sate7 l-bet</small></div>
+      </div>
+    </div>
+
+    <div class="strip">
+      <div class="strip-track" aria-hidden="true">
+        <span>Skin Fade <i>✦</i> Taper Fade <i>✦</i> Beard Trim <i>✦</i> Line-Up <i>✦</i> Kids Cut <i>✦</i> Hot Towel <i>✦</i></span>
+        <span>Skin Fade <i>✦</i> Taper Fade <i>✦</i> Beard Trim <i>✦</i> Line-Up <i>✦</i> Kids Cut <i>✦</i> Hot Towel <i>✦</i></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SERVICES ============ -->
+  <section class="services" id="services">
+    <div class="shell">
+      <div class="sec-head reveal">
+        <span class="eyebrow">The Menu</span>
+        <h2>Services &amp; Prices</h2>
+        <p>Every cut finishes with a line-up, a hot towel and styling. No rushing, no surprises at the end.</p>
+      </div>
+
+      <!-- EDIT ME: change the prices below to your real prices -->
+      <div class="svc-grid">
+        <article class="svc reveal">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M9.6 12 3 5.4 4.4 4l7 7 3.2-3.2A3 3 0 1 1 16 9.2L12.8 12 16 14.8a3 3 0 1 1-1.4 1.4L11.4 13l-7 7L3 18.6 9.6 12Zm8.9-4.5a1 1 0 1 0-1.4-1.4 1 1 0 0 0 1.4 1.4Zm0 11a1 1 0 1 0-1.4-1.4 1 1 0 0 0 1.4 1.4Z"/></svg>
+          <h3>Regular Cut</h3>
+          <p>Scissor or clipper cut, washed, shaped and styled the way you want it.</p>
+          <div class="price">$8<small>30 minutes</small></div>
+        </article>
+
+        <article class="svc reveal">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M4 11h16v2H4v-2Zm2.5-6h11a2.5 2.5 0 0 1 2.5 2.5V9H4V7.5A2.5 2.5 0 0 1 6.5 5Zm-2.5 10h16v1.5A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5V15Z"/></svg>
+          <h3>Beard Trim &amp; Shape</h3>
+          <p>Beard lined up with the razor, evened out with the trimmer, finished with balm.</p>
+          <div class="price">$5<small>20 minutes</small></div>
+        </article>
+
+        <article class="svc reveal">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M12 2.5 14.9 8.6l6.6.9-4.8 4.6 1.2 6.6L12 17.6l-5.9 3.1 1.2-6.6-4.8-4.6 6.6-.9L12 2.5Z"/></svg>
+          <h3>Cut + Beard</h3>
+          <p>The full session — fade, line-up, beard shape and hot towel finish.</p>
+          <div class="price">$12<small>50 minutes</small></div>
+        </article>
+
+        <article class="svc reveal">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8Zm0 10c4 0 7 2.2 7 4.6V21H5v-3.4C5 15.2 8 13 12 13Z"/></svg>
+          <h3>Kids Cut</h3>
+          <p>Patient, quick and gentle. Under 12s get the chair and the full treatment.</p>
+          <div class="price">$6<small>25 minutes</small></div>
+        </article>
+
+        <article class="svc reveal">
+          <svg class="ico" viewBox="0 0 24 24"><path d="m3 17.6 9.9-9.9 3.4 3.4-9.9 9.9H3v-3.4Zm11.3-11.3 1.8-1.8a1.5 1.5 0 0 1 2.1 0l1.3 1.3a1.5 1.5 0 0 1 0 2.1l-1.8 1.8-3.4-3.4Z"/></svg>
+          <h3>Line-Up / Edge-Up</h3>
+          <p>Sharp razor edges on the hairline between cuts. In and out.</p>
+          <div class="price">$3<small>15 minutes</small></div>
+        </article>
+
+        <article class="svc reveal">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M12 2s6 5.4 6 10a6 6 0 0 1-12 0c0-4.6 6-10 6-10Zm0 16a4 4 0 0 0 4-4c0-2.4-2.4-5.6-4-7.3C10.4 8.4 8 11.6 8 14a4 4 0 0 0 4 4Z"/></svg>
+          <h3>Hot Towel Shave</h3>
+          <p>Steamed towel, oil, straight razor, cold finish. The old-school way.</p>
+          <div class="price">$7<small>30 minutes</small></div>
+        </article>
+      </div>
+
+      <p class="price-note">Prices in USD, cash or OMT. Home visits available around Karm El Mehr — message for the price.</p>
+    </div>
+  </section>
+
+  <!-- ============ GALLERY ============ -->
+  <section id="work">
+    <div class="shell">
+      <div class="sec-head reveal">
+        <span class="eyebrow">The Chair</span>
+        <h2>Recent Work</h2>
+        <p>Straight from the rooftop chair. More on the shop's story every week.</p>
+      </div>
+      <div class="gal">
+        <figure class="reveal">
+          <img src="img/cut-01.jpg" width="1100" height="1467" loading="lazy" alt="Mid skin fade being blended with clippers">
+          <figcaption>Mid skin fade</figcaption>
+        </figure>
+        <figure class="reveal">
+          <img src="img/cut-02.jpg" width="1100" height="1467" loading="lazy" alt="Barber combing and shaping the top of a fresh fade">
+          <figcaption>Comb &amp; clipper work</figcaption>
+        </figure>
+        <figure class="reveal flyer">
+          <img src="img/flyer.jpg" width="900" height="900" loading="lazy" alt="A7AA Barber Shop flyer">
+          <figcaption>The shop flyer</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ABOUT ============ -->
+  <section class="about" id="about">
+    <div class="shell about-grid">
+      <img class="reveal" src="img/cut-02.jpg" width="1100" height="1467" loading="lazy" alt="The barber at work">
+      <div class="reveal">
+        <span class="eyebrow">Who's Behind the Clippers</span>
+        <h2>18, Self-Taught,<br>Serious About Fades</h2>
+        <p class="lead">
+          A7AA Barber Shop started the way most good things around here start — with a chair on the
+          rooftop, a mirror, and friends who needed a cut.
+        </p>
+        <p>
+          Two years and a lot of practice later, that same chair is booked most days of the week. Every
+          fade gets blended until it disappears, every line gets checked twice, and nobody leaves before
+          they've seen the back of their own head in the mirror.
+        </p>
+        <ul class="tick">
+          <li><svg viewBox="0 0 24 24"><path d="M9.6 16.6 5 12l1.4-1.4 3.2 3.2 8-8L19 7.2l-9.4 9.4Z"/></svg><span>Fresh blade and clean tools for every single client.</span></li>
+          <li><svg viewBox="0 0 24 24"><path d="M9.6 16.6 5 12l1.4-1.4 3.2 3.2 8-8L19 7.2l-9.4 9.4Z"/></svg><span>Tell him the look you want — or let him pick what suits your head shape.</span></li>
+          <li><svg viewBox="0 0 24 24"><path d="M9.6 16.6 5 12l1.4-1.4 3.2 3.2 8-8L19 7.2l-9.4 9.4Z"/></svg><span>Not happy with a line? Come back within 3 days and it gets fixed free.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HOURS + LOCATION ============ -->
+  <section id="hours">
+    <div class="shell">
+      <div class="sec-head reveal">
+        <span class="eyebrow">Find the Chair</span>
+        <h2>Hours &amp; Location</h2>
+      </div>
+      <div class="info-grid">
+        <div class="card reveal">
+          <h3>Opening Hours</h3>
+          <!-- EDIT ME: change these to your real hours -->
+          <ul class="hours" id="hours-list">
+            <li data-day="1"><span>Monday</span><span>10:00 — 20:00</span></li>
+            <li data-day="2"><span>Tuesday</span><span>10:00 — 20:00</span></li>
+            <li data-day="3"><span>Wednesday</span><span>10:00 — 20:00</span></li>
+            <li data-day="4"><span>Thursday</span><span>10:00 — 20:00</span></li>
+            <li data-day="5"><span>Friday</span><span>10:00 — 21:00</span></li>
+            <li data-day="6"><span>Saturday</span><span>09:00 — 21:00</span></li>
+            <li data-day="0"><span>Sunday</span><span>By appointment</span></li>
+          </ul>
+        </div>
+        <div class="card reveal">
+          <h3>Where to Come</h3>
+          <div class="where">
+            <a href="https://www.google.com/maps/search/?api=1&query=Karm+El+Mehr+Lebanon" target="_blank" rel="noopener">
+              <svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 5.2-7 13-7 13S5 14.2 5 9a7 7 0 0 1 7-7Zm0 4.5A2.5 2.5 0 1 0 12 11.5 2.5 2.5 0 0 0 12 6.5Z"/></svg>
+              <span>Karm El Mehr, Lebanon<small>Sate7 l-bet — message for the exact pin</small></span>
+            </a>
+            <a href="#book" data-wa>
+              <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.8 14.2c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.1-1.9-.1-.4-.1-1-.3-1.8-.6-3.1-1.3-5.1-4.4-5.3-4.7-.1-.2-1.2-1.6-1.2-3s.7-2.1 1-2.4c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .7.5l1 2.3c.1.2.1.4 0 .6l-.4.6-.3.4c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.7-.1l.9-1c.2-.3.4-.2.7-.1l2.1 1c.3.2.5.2.6.4.1.1.1.7-.1 1.4Z"/></svg>
+              <span id="wa-line">WhatsApp<small>Fastest way to get a slot</small></span>
+            </a>
+            <a href="#book">
+              <svg viewBox="0 0 24 24"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm5 16.5a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5ZM8 5v11h8V5H8Z"/></svg>
+              <span>Walk-ins welcome<small>But booked chairs go first</small></span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BOOKING ============ -->
+  <section class="book" id="book">
+    <div class="shell book-wrap">
+      <div class="reveal">
+        <span class="eyebrow">Reserve the Chair</span>
+        <h2>Book in 30 Seconds</h2>
+        <p style="color:var(--muted)">
+          Fill this in and it opens WhatsApp with your booking already written out. Send it, and you'll
+          get a confirmation back — usually within the hour.
+        </p>
+        <div class="hero-stats" style="margin-top:1.8rem">
+          <div><strong>No</strong><span>Deposit needed</span></div>
+          <div><strong>Free</strong><span>Cancellation</span></div>
+        </div>
+      </div>
+
+      <form id="bookForm" class="reveal" novalidate>
+        <div>
+          <label for="f-name">Your name</label>
+          <input id="f-name" name="name" type="text" autocomplete="name" placeholder="e.g. Karim" required>
+        </div>
+        <div>
+          <label for="f-service">Service</label>
+          <select id="f-service" name="service">
+            <option>Regular Cut</option>
+            <option>Beard Trim &amp; Shape</option>
+            <option>Cut + Beard</option>
+            <option>Kids Cut</option>
+            <option>Line-Up / Edge-Up</option>
+            <option>Hot Towel Shave</option>
+          </select>
+        </div>
+        <div class="row">
+          <div>
+            <label for="f-date">Day</label>
+            <input id="f-date" name="date" type="date">
+          </div>
+          <div>
+            <label for="f-time">Time</label>
+            <input id="f-time" name="time" type="time">
+          </div>
+        </div>
+        <div>
+          <label for="f-note">Anything else?</label>
+          <textarea id="f-note" name="note" placeholder="Skin fade on the sides, scissors on top…"></textarea>
+        </div>
+        <div class="notice" id="formNotice"></div>
+        <button class="btn btn-gold" type="submit">
+          <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.8 14.2c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.1-1.9-.1-.4-.1-1-.3-1.8-.6-3.1-1.3-5.1-4.4-5.3-4.7-.1-.2-1.2-1.6-1.2-3s.7-2.1 1-2.4c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .7.5l1 2.3c.1.2.1.4 0 .6l-.4.6-.3.4c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.7-.1l.9-1c.2-.3.4-.2.7-.1l2.1 1c.3.2.5.2.6.4.1.1.1.7-.1 1.4Z"/></svg>
+          Send on WhatsApp
+        </button>
+        <p class="form-note">Nothing is stored on this site — the button just opens WhatsApp with the message ready.</p>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="shell">
+    <div class="foot">
+      <a class="brand" href="#top">
+        <span class="mark">A7</span>
+        <span><b>A7AA</b><small>Barber Shop</small></span>
+      </a>
+      <div class="socials">
+        <a href="#book" data-wa aria-label="WhatsApp">
+          <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.8 14.2c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.1-1.9-.1-.4-.1-1-.3-1.8-.6-3.1-1.3-5.1-4.4-5.3-4.7-.1-.2-1.2-1.6-1.2-3s.7-2.1 1-2.4c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .7.5l1 2.3c.1.2.1.4 0 .6l-.4.6-.3.4c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.7-.1l.9-1c.2-.3.4-.2.7-.1l2.1 1c.3.2.5.2.6.4.1.1.1.7-.1 1.4Z"/></svg>
+        </a>
+        <a href="#" id="ig-link" aria-label="Instagram">
+          <svg viewBox="0 0 24 24"><path d="M12 2.2c3.2 0 3.6 0 4.9.1 1.2.1 1.8.2 2.2.4.6.2 1 .5 1.4 1 .5.4.8.8 1 1.4.2.4.3 1 .4 2.2.1 1.3.1 1.7.1 4.9s0 3.6-.1 4.9c-.1 1.2-.2 1.8-.4 2.2-.2.6-.5 1-1 1.4-.4.5-.8.8-1.4 1-.4.2-1 .3-2.2.4-1.3.1-1.7.1-4.9.1s-3.6 0-4.9-.1c-1.2-.1-1.8-.2-2.2-.4-.6-.2-1-.5-1.4-1-.5-.4-.8-.8-1-1.4-.2-.4-.3-1-.4-2.2C2.2 15.6 2.2 15.2 2.2 12s0-3.6.1-4.9c.1-1.2.2-1.8.4-2.2.2-.6.5-1 1-1.4.4-.5.8-.8 1.4-1 .4-.2 1-.3 2.2-.4 1.3-.1 1.7-.1 4.7-.1Zm0 3.3A6.5 6.5 0 1 0 18.5 12 6.5 6.5 0 0 0 12 5.5Zm0 10.7A4.2 4.2 0 1 1 16.2 12 4.2 4.2 0 0 1 12 16.2Zm6.8-10.9a1.5 1.5 0 1 1-1.5-1.5 1.5 1.5 0 0 1 1.5 1.5Z"/></svg>
+        </a>
+        <a href="#hours" aria-label="Location">
+          <svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 5.2-7 13-7 13S5 14.2 5 9a7 7 0 0 1 7-7Zm0 4.5A2.5 2.5 0 1 0 12 11.5 2.5 2.5 0 0 0 12 6.5Z"/></svg>
+        </a>
+      </div>
+    </div>
+    <p class="copy">© <span id="yr">2026</span> A7AA Barber Shop · Karm El Mehr, Lebanon</p>
+  </div>
+</footer>
+
+<a class="float-wa" data-wa href="#book" aria-label="Message on WhatsApp">
+  <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.8 14.2c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.1-1.9-.1-.4-.1-1-.3-1.8-.6-3.1-1.3-5.1-4.4-5.3-4.7-.1-.2-1.2-1.6-1.2-3s.7-2.1 1-2.4c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .7.5l1 2.3c.1.2.1.4 0 .6l-.4.6-.3.4c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.7-.1l.9-1c.2-.3.4-.2.7-.1l2.1 1c.3.2.5.2.6.4.1.1.1.7-.1 1.4Z"/></svg>
+</a>
+
+<script>
+/* =====================================================================
+   EDIT THIS BLOCK — put the shop's real details here and nothing else
+   needs changing.
+   whatsapp : full number, country code first, digits only.
+              Lebanon example: "96170123456"
+   instagram: full profile URL, or leave "" to hide the Instagram button.
+   ===================================================================== */
+const SHOP = {
+  whatsapp : "",                 // e.g. "96170123456"
+  instagram: ""                  // e.g. "https://instagram.com/a7aa.barber"
+};
+/* ===================================================================== */
+
+const waReady = /^\d{8,15}$/.test(SHOP.whatsapp);
+const waLink  = txt => "https://wa.me/" + SHOP.whatsapp + "?text=" + encodeURIComponent(txt);
+
+/* Point every WhatsApp button at wa.me once a number is configured.
+   Until then they scroll down to the booking form instead. */
+if (waReady) {
+  const hello = "Hi A7AA Barber Shop 👋 I'd like to book a cut.";
+  document.querySelectorAll('[data-wa]').forEach(a => {
+    a.href = waLink(hello);
+    a.target = "_blank";
+    a.rel = "noopener";
+  });
+  const line = document.getElementById('wa-line');
+  if (line) line.firstChild.textContent = "+" + SHOP.whatsapp;
+}
+
+/* Instagram */
+const ig = document.getElementById('ig-link');
+if (SHOP.instagram) {
+  ig.href = SHOP.instagram; ig.target = "_blank"; ig.rel = "noopener";
+} else {
+  ig.remove();
+}
+
+/* Mobile menu */
+const nav = document.getElementById('nav');
+const burger = document.getElementById('burger');
+burger.addEventListener('click', () => {
+  const open = nav.classList.toggle('open');
+  burger.setAttribute('aria-expanded', open);
+});
+document.querySelectorAll('#navLinks a').forEach(a =>
+  a.addEventListener('click', () => {
+    nav.classList.remove('open');
+    burger.setAttribute('aria-expanded', false);
+  })
+);
+
+/* Header shadow + active section in the nav */
+const head = document.getElementById('head');
+const links = [...document.querySelectorAll('#navLinks a')];
+const sections = links.map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+const onScroll = () => {
+  head.classList.toggle('stuck', window.scrollY > 12);
+  const y = window.scrollY + 120;
+  let current = null;
+  sections.forEach(s => { if (s.offsetTop <= y) current = s.id; });
+  links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + current));
+};
+window.addEventListener('scroll', onScroll, { passive: true });
+onScroll();
+
+/* Highlight today's opening hours */
+const today = new Date().getDay();
+const row = document.querySelector(`#hours-list li[data-day="${today}"]`);
+if (row) row.classList.add('today');
+
+/* Reveal on scroll */
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+}, { threshold: .12, rootMargin: '0px 0px -40px' });
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+/* Booking form → pre-written WhatsApp message */
+const form   = document.getElementById('bookForm');
+const notice = document.getElementById('formNotice');
+const say = msg => { notice.textContent = msg; notice.classList.add('show'); };
+
+/* Don't let anyone book a date in the past */
+const dateInput = document.getElementById('f-date');
+dateInput.min = new Date().toISOString().slice(0, 10);
+
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  notice.classList.remove('show');
+
+  /* form.elements — going through `form.name` directly would hit the form's
+     own name property instead of the input. */
+  const f = form.elements;
+  const name = f.name.value.trim();
+  if (!name) { say("Please add your name so he knows who's coming."); f.name.focus(); return; }
+
+  if (!waReady) {
+    say("WhatsApp number not set up yet — open barber/index.html and fill in SHOP.whatsapp near the bottom.");
+    return;
+  }
+
+  const parts = [
+    "Hi A7AA Barber Shop 👋",
+    "",
+    "Name: " + name,
+    "Service: " + f.service.value
+  ];
+  if (f.date.value) {
+    const d = new Date(f.date.value + "T00:00:00");
+    parts.push("Day: " + d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' }));
+  }
+  if (f.time.value) parts.push("Time: " + f.time.value);
+  if (f.note.value.trim()) parts.push("Note: " + f.note.value.trim());
+
+  window.open(waLink(parts.join("\n")), "_blank", "noopener");
+});
+
+document.getElementById('yr').textContent = new Date().getFullYear();
+</script>
+</body>
+</html>
