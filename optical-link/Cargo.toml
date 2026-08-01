@@ -1,0 +1,20 @@
+[package]
+name = "optical-link"
+version = "0.1.0"
+edition = "2021"
+description = "Screen-to-camera optical data link: color grid + Reed-Solomon + RaptorQ fountain coding"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+raptorq = "2.0"
+reed-solomon = "0.2"
+
+[profile.release]
+opt-level = 3
+lto = true
+
+[[bin]]
+name = "simulate"
+path = "src/bin/simulate.rs"
